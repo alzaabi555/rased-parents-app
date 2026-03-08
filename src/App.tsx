@@ -127,23 +127,38 @@ function App() {
             </div>
           </div>
 
-          {/* 4. قسم الدرجات */}
+          {/* 4. قسم الدرجات (تم التحديث ليدعم المصفوفة البرمجية والترتيب الذكي) */}
           <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-4 text-indigo-600">
               <BookOpen className="w-5 h-5" />
-              <h3 className="font-black text-base">سجل الدرجات</h3>
+              <h3 className="font-black text-base">سجل الدرجات والتقويم</h3>
             </div>
             
             <div className="space-y-3">
-              {studentData.grades && studentData.grades.length > 0 ? (
-                studentData.grades.map((g: any, i: number) => (
-                  <div key={i} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-sm font-bold text-slate-700">{g.category}</span>
-                    <span className="bg-indigo-100 text-indigo-700 font-black text-sm px-4 py-1 rounded-lg">
-                      {g.score} <span className="text-xs text-indigo-400 font-normal">/ {g.maxScore || '-'}</span>
-                    </span>
-                  </div>
-                ))
+              {studentData.grades && (Array.isArray(studentData.grades) || typeof studentData.grades === 'string') ? (
+                (() => {
+                  const allGrades = typeof studentData.grades === 'string' 
+                    ? JSON.parse(studentData.grades) 
+                    : studentData.grades;
+
+                  const sortedGrades = [...allGrades].sort((a, b) => b.semester.localeCompare(a.semester));
+
+                  return sortedGrades.map((g: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-700">{g.category}</span>
+                        <div className="flex gap-2 mt-0.5">
+                           <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${g.semester === '2' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
+                            الفصل {g.semester === '1' ? 'الأول' : 'الثاني'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="bg-indigo-100 text-indigo-700 font-black text-sm px-4 py-1 rounded-lg">
+                        {g.score}
+                      </span>
+                    </div>
+                  ));
+                })()
               ) : (
                 <div className="text-center text-slate-400 text-sm py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                   لم يتم رصد درجات حتى الآن.
