@@ -25,6 +25,15 @@ jobs:
       - name: 🏗️ بناء واجهة التطبيق (Vite Build)
         run: npm run build
 
+      - name: 🎨 توليد أيقونات الأندرويد تلقائياً
+        run: |
+          if [ -f "icon.png" ]; then
+            mkdir -p assets
+            cp icon.png assets/icon.png
+            npm install @capacitor/assets -D
+            npx capacitor-assets generate
+          fi
+
       - name: 🔄 مزامنة الكود مع الأندرويد (Capacitor Sync)
         run: npx cap sync android
 
