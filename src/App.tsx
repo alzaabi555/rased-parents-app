@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  QrCode, ArrowLeft, Loader2, AlertCircle, 
-  LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, CalendarDays, ChevronLeft, GraduationCap
+  QrCode, ArrowLeft, Loader2, 
+  LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, GraduationCap
 } from 'lucide-react';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
@@ -110,7 +110,7 @@ function App() {
             </div>
           </div>
 
-          {/* السلوكيات والدرجات (نفس الكود السابق المطور) */}
+          {/* السلوكيات والدرجات */}
           <div className="grid grid-cols-2 gap-4">
              <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100">
                 <div className="flex items-center gap-2 mb-2 text-emerald-600 border-b pb-2"><ThumbsUp size={14} /><h3 className="font-bold text-xs">إيجابي</h3></div>
