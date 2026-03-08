@@ -1,40 +1,36 @@
 import React, { useState } from 'react';
 import { 
   QrCode, ArrowLeft, Loader2, AlertCircle, 
-  LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, CalendarDays 
+  LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, CalendarDays, ChevronLeft, GraduationCap
 } from 'lucide-react';
 
-// ✅ الرابط السري الخاص بالدكتور محمد
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
 
 function App() {
-  const [parentCode, setParentCode] = useState('');
+  const [civilID, setCivilID] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [studentData, setStudentData] = useState<any>(null);
+  const [allSubjects, setAllSubjects] = useState<any[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<any>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!parentCode.trim()) {
-      setError('الرجاء إدخال الكود السري الخاص بالطالب.');
-      return;
-    }
+    if (!civilID.trim()) return setError('الرجاء إدخال الرقم المدني للطالب.');
 
     setIsLoading(true);
     setError('');
 
     try {
-      const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${parentCode.trim().toUpperCase()}`);
-      const data = await response.json();
+      const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${civilID.trim()}`);
+      const result = await response.json();
 
-      if (data.status === 'success') {
-        setStudentData(data.student);
+      if (result.status === 'success') {
+        setAllSubjects(result.subjects);
       } else {
-        setError('الكود السري غير صحيح، تأكد من كتابته بشكل مطابق للبطاقة.');
+        setError('لم يتم العثور على بيانات لهذا الرقم المدني.');
       }
     } catch (err) {
-      setError('حدث خطأ في الاتصال. تأكد من اتصالك بالإنترنت.');
-      console.error(err);
+      setError('خطأ في الاتصال بالسحابة.');
     } finally {
       setIsLoading(false);
     }
@@ -42,204 +38,145 @@ function App() {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+    return new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   // =========================================================================
-  // 📱 واجهة "لوحة القيادة" (Dashboard) - تظهر لولي الأمر بعد الدخول
+  // 1. واجهة اختيار المادة (Subject Selection)
   // =========================================================================
-  if (studentData) {
-    const positiveBehaviors = studentData.behaviors?.filter((b: any) => b.type === 'positive') || [];
-    const negativeBehaviors = studentData.behaviors?.filter((b: any) => b.type === 'negative') || [];
-
+  if (allSubjects.length > 0 && !selectedSubject) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-10" dir="rtl">
-        
-        {/* 1. الترويسة العلوية */}
-        <div className="bg-gradient-to-b from-[#1e3a8a] to-[#2563eb] text-white px-6 pt-12 pb-8 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent pointer-events-none"></div>
-          
-          <div className="flex justify-between items-start relative z-10">
-            <div>
-              <p className="text-blue-200 text-sm font-bold mb-1">مرحباً بك، ولي أمر</p>
-              <h1 className="text-2xl font-black">{studentData.name}</h1>
-              <span className="inline-block mt-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold border border-white/30">
-                الصف: {studentData.className || 'غير محدد'}
-              </span>
-            </div>
-            <button 
-              onClick={() => setStudentData(null)}
-              className="p-2 bg-white/10 hover:bg-rose-500 hover:text-white rounded-xl transition-colors backdrop-blur-md"
-              title="تسجيل الخروج"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+      <div className="min-h-screen bg-slate-50 font-sans p-6" dir="rtl">
+        <div className="flex justify-between items-center mb-8">
+          <button onClick={() => setAllSubjects([])} className="p-2 bg-white rounded-xl shadow-sm"><LogOut size={20} className="text-rose-500"/></button>
+          <div className="text-right">
+            <h1 className="text-xl font-black text-slate-800">{allSubjects[0].name}</h1>
+            <p className="text-xs font-bold text-slate-400">الصف: {allSubjects[0].className}</p>
           </div>
         </div>
 
-        <div className="px-5 -mt-6 relative z-20 space-y-5 max-w-md mx-auto">
-          
-          {/* 2. بطاقة رصيد الفرسان */}
-          <div className="bg-white rounded-3xl p-6 shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-500 mb-1">رصيد نقاط الفرسان</h2>
-              <p className="text-xs text-slate-400">إجمالي النقاط الحالية</p>
-            </div>
-            <div className="bg-amber-50 border-2 border-amber-100 w-20 h-20 rounded-2xl flex flex-col items-center justify-center text-amber-600 shadow-inner">
-              <Trophy className="w-6 h-6 mb-1" />
-              <span className="text-2xl font-black leading-none">{studentData.totalPoints || 0}</span>
-            </div>
-          </div>
-
-          {/* 3. قسم السلوكيات */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* الإيجابي */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100">
-              <div className="flex items-center gap-2 mb-3 text-emerald-600 border-b border-emerald-50 pb-2">
-                <ThumbsUp className="w-4 h-4" />
-                <h3 className="font-bold text-sm">السلوك الإيجابي</h3>
-              </div>
-              <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                {positiveBehaviors.length > 0 ? positiveBehaviors.map((b: any, i: number) => (
-                  <div key={i} className="bg-emerald-50 p-2 rounded-lg">
-                    <p className="text-xs font-bold text-emerald-900 mb-1">{b.description}</p>
-                    <p className="text-[9px] text-emerald-600 flex items-center gap-1"><CalendarDays className="w-3 h-3"/> {formatDate(b.date)}</p>
-                  </div>
-                )) : <p className="text-xs text-slate-400 text-center py-2">لا يوجد سجل</p>}
-              </div>
-            </div>
-
-            {/* السلبي */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-rose-100">
-              <div className="flex items-center gap-2 mb-3 text-rose-600 border-b border-rose-50 pb-2">
-                <ThumbsDown className="w-4 h-4" />
-                <h3 className="font-bold text-sm">ملاحظات (تنبيه)</h3>
-              </div>
-              <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                {negativeBehaviors.length > 0 ? negativeBehaviors.map((b: any, i: number) => (
-                  <div key={i} className="bg-rose-50 p-2 rounded-lg">
-                    <p className="text-xs font-bold text-rose-900 mb-1">{b.description}</p>
-                    <p className="text-[9px] text-rose-600 flex items-center gap-1"><CalendarDays className="w-3 h-3"/> {formatDate(b.date)}</p>
-                  </div>
-                )) : <p className="text-xs text-emerald-500 text-center py-2 font-bold">طالب منضبط 🌟</p>}
-              </div>
-            </div>
-          </div>
-
-          {/* 4. قسم الدرجات (تم التحديث ليدعم المصفوفة البرمجية والترتيب الذكي) */}
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-4 text-indigo-600">
-              <BookOpen className="w-5 h-5" />
-              <h3 className="font-black text-base">سجل الدرجات والتقويم</h3>
-            </div>
-            
-            <div className="space-y-3">
-              {studentData.grades && (Array.isArray(studentData.grades) || typeof studentData.grades === 'string') ? (
-                (() => {
-                  const allGrades = typeof studentData.grades === 'string' 
-                    ? JSON.parse(studentData.grades) 
-                    : studentData.grades;
-
-                  const sortedGrades = [...allGrades].sort((a, b) => b.semester.localeCompare(a.semester));
-
-                  return sortedGrades.map((g: any, i: number) => (
-                    <div key={i} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-700">{g.category}</span>
-                        <div className="flex gap-2 mt-0.5">
-                           <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${g.semester === '2' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
-                            الفصل {g.semester === '1' ? 'الأول' : 'الثاني'}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="bg-indigo-100 text-indigo-700 font-black text-sm px-4 py-1 rounded-lg">
-                        {g.score}
-                      </span>
-                    </div>
-                  ));
-                })()
-              ) : (
-                <div className="text-center text-slate-400 text-sm py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  لم يتم رصد درجات حتى الآن.
+        <h2 className="text-lg font-black text-[#1e3a8a] mb-4">اختر المادة الدراسية:</h2>
+        <div className="grid gap-4">
+          {allSubjects.map((sub, idx) => (
+            <button 
+              key={idx}
+              onClick={() => setSelectedSubject(sub)}
+              className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex justify-between items-center hover:border-blue-300 transition-all active:scale-95 text-right"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                  <GraduationCap size={24} />
                 </div>
-              )}
-            </div>
-          </div>
-
-          <p className="text-center text-[10px] text-slate-400 mt-6 font-bold">
-            آخر تحديث للبيانات: {formatDate(studentData.lastUpdate)}
-          </p>
-
+                <div>
+                  <h3 className="font-black text-slate-700">{sub.subject}</h3>
+                  <p className="text-[10px] text-slate-400">آخر تحديث: {formatDate(sub.lastUpdate)}</p>
+                </div>
+              </div>
+              <ChevronLeft className="text-slate-300" />
+            </button>
+          ))}
         </div>
       </div>
     );
   }
 
   // =========================================================================
-  // 🔐 واجهة "تسجيل الدخول" (بوابة التطبيق)
+  // 2. لوحة قيادة المادة المختارة (Subject Dashboard)
   // =========================================================================
-  return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-[#0f172a] to-[#1e3a8a] p-6 font-sans relative overflow-hidden" dir="rtl">
-      
-      {/* دوائر الزينة في الخلفية */}
-      <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-      <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-amber-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+  if (selectedSubject) {
+    const s = selectedSubject;
+    const pos = s.behaviors?.filter((b: any) => b.type === 'positive') || [];
+    const neg = s.behaviors?.filter((b: any) => b.type === 'negative') || [];
 
-      {/* الشعار والترحيب */}
-      <div className="text-center mb-10 relative z-10">
-        <div className="w-24 h-24 bg-white/10 rounded-[2rem] backdrop-blur-md flex items-center justify-center mx-auto mb-6 shadow-2xl border border-white/20">
-          <QrCode className="w-12 h-12 text-amber-400" />
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-10" dir="rtl">
+        <div className="bg-[#1e3a8a] text-white px-6 pt-12 pb-8 rounded-b-[2.5rem] shadow-lg">
+          <div className="flex justify-between items-center mb-4">
+            <button onClick={() => setSelectedSubject(null)} className="p-2 bg-white/10 rounded-xl"><ArrowLeft size={20}/></button>
+            <h1 className="text-lg font-black">{s.subject}</h1>
+          </div>
+          <div className="text-center">
+            <h2 className="text-2xl font-black text-amber-400">{s.name}</h2>
+            <p className="text-xs text-blue-200 mt-1">سجل مادة {s.subject}</p>
+          </div>
         </div>
-        <h1 className="text-4xl font-black text-white mb-2 tracking-wide">راصد للآباء</h1>
-        <p className="text-blue-200 text-sm font-bold">بوابة متابعة السلوك والتحصيل الدراسي</p>
-      </div>
 
-      {/* صندوق الدخول */}
-      <div className="w-full max-w-sm bg-white rounded-[2rem] p-8 shadow-2xl relative z-10">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-400 to-amber-600"></div>
-        
-        <h2 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل الدخول</h2>
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-2">الكود السري للطالب (PIN)</label>
-            <input 
-              type="text" 
-              value={parentCode}
-              onChange={(e) => setParentCode(e.target.value)}
-              placeholder="مثال: RSD-XXXX"
-              className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-4 text-center text-lg font-mono font-black tracking-widest text-slate-800 outline-none focus:border-[#1e3a8a] focus:bg-white transition-all uppercase"
-              dir="ltr"
-              autoComplete="off"
-            />
+        <div className="px-5 -mt-6 space-y-5">
+          {/* رصيد النقاط */}
+          <div className="bg-white rounded-3xl p-6 shadow-xl flex items-center justify-between">
+            <h2 className="font-bold text-slate-500">نقاط التميز في المادة</h2>
+            <div className="bg-amber-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-amber-600 border border-amber-100">
+              <Trophy size={20} /><span className="text-xl font-black">{s.totalPoints}</span>
+            </div>
           </div>
 
-          {error && (
-            <div className="bg-rose-50 text-rose-600 p-3 rounded-lg text-xs font-bold flex items-start gap-2 border border-rose-100">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <p>{error}</p>
-            </div>
-          )}
+          {/* السلوكيات والدرجات (نفس الكود السابق المطور) */}
+          <div className="grid grid-cols-2 gap-4">
+             <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100">
+                <div className="flex items-center gap-2 mb-2 text-emerald-600 border-b pb-2"><ThumbsUp size={14} /><h3 className="font-bold text-xs">إيجابي</h3></div>
+                <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
+                  {pos.map((b: any, i: number) => (
+                    <div key={i} className="bg-emerald-50 p-2 rounded-lg"><p className="text-[10px] font-bold text-emerald-900">{b.description}</p></div>
+                  ))}
+                </div>
+             </div>
+             <div className="bg-white rounded-2xl p-4 shadow-sm border border-rose-100">
+                <div className="flex items-center gap-2 mb-2 text-rose-600 border-b pb-2"><ThumbsDown size={14} /><h3 className="font-bold text-xs">تنبيهات</h3></div>
+                <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
+                  {neg.map((b: any, i: number) => (
+                    <div key={i} className="bg-rose-50 p-2 rounded-lg"><p className="text-[10px] font-bold text-rose-900">{b.description}</p></div>
+                  ))}
+                </div>
+             </div>
+          </div>
 
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-4 text-indigo-600"><BookOpen size={18}/><h3 className="font-black">سجل الدرجات</h3></div>
+            <div className="space-y-2">
+              {s.grades?.map((g: any, i: number) => (
+                <div key={i} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-xs font-bold text-slate-700">{g.category}</span>
+                  <span className="bg-indigo-100 text-indigo-700 font-black text-xs px-3 py-1 rounded-lg">{g.score}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 3. واجهة تسجيل الدخول بالرقم المدني
+  // =========================================================================
+  return (
+    <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-[#0f172a] to-[#1e3a8a] p-6 font-sans overflow-hidden" dir="rtl">
+      <div className="text-center mb-10 relative z-10">
+        <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-white/20 shadow-2xl">
+          <QrCode className="w-12 h-12 text-amber-400" />
+        </div>
+        <h1 className="text-4xl font-black text-white mb-2">راصد للآباء</h1>
+        <p className="text-blue-200 text-sm font-bold">يرجى إدخال الرقم المدني للطالب</p>
+      </div>
+
+      <div className="w-full max-w-sm bg-white rounded-[2rem] p-8 shadow-2xl relative z-10">
+        <form onSubmit={handleLogin} className="space-y-6">
+          <input 
+            type="number" 
+            value={civilID}
+            onChange={(e) => setCivilID(e.target.value)}
+            placeholder="الرقم المدني"
+            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black tracking-[0.2em] text-slate-800 outline-none focus:border-[#1e3a8a]"
+          />
+          {error && <div className="text-rose-500 text-xs font-bold text-center">{error}</div>}
           <button 
             type="submit" 
-            disabled={isLoading || !parentCode}
-            className="w-full bg-[#1e3a8a] hover:bg-[#152c6b] text-white py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/30 transition-all active:scale-95 disabled:opacity-70"
+            disabled={isLoading || !civilID}
+            className="w-full bg-[#1e3a8a] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-lg disabled:opacity-70 transition-all active:scale-95"
           >
-            {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                دخول <ArrowLeft className="w-4 h-4" />
-              </>
-            )}
+            {isLoading ? <Loader2 className="animate-spin" /> : <>دخول <ArrowLeft size={18} /></>}
           </button>
         </form>
-        
-        <p className="text-[10px] text-center text-slate-400 font-bold mt-6">
-          * احصل على الكود السري من المعلم عبر بطاقة الدخول.
-        </p>
       </div>
     </div>
   );
