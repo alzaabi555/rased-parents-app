@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   QrCode, ArrowLeft, Loader2, 
   LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, 
-  GraduationCap, MessageSquare, Send, X
+  GraduationCap, MessageSquare, Send, X, Code
 } from 'lucide-react';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
@@ -14,7 +14,7 @@ function App() {
   const [allSubjects, setAllSubjects] = useState<any[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
 
-  // 💬 حالات نافذة المراسلة الجديدة
+  // حالات نافذة المراسلة 
   const [isMessageOpen, setIsMessageOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
@@ -42,7 +42,6 @@ function App() {
     }
   };
 
-  // 📩 دالة إرسال الملاحظة للمعلم
   const handleSendMessage = async () => {
     if (!messageText.trim()) return;
     setIsSendingMsg(true);
@@ -86,35 +85,46 @@ function App() {
   // =========================================================================
   if (allSubjects.length > 0 && !selectedSubject) {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans p-6" dir="rtl">
-        <div className="flex justify-between items-center mb-8">
-          <button onClick={() => setAllSubjects([])} className="p-2 bg-white rounded-xl shadow-sm"><LogOut size={20} className="text-rose-500"/></button>
-          <div className="text-right">
-            <h1 className="text-xl font-black text-slate-800">{allSubjects[0].name}</h1>
-            <p className="text-xs font-bold text-slate-400">الصف: {allSubjects[0].className}</p>
+      <div className="min-h-screen flex flex-col bg-slate-50 font-sans" dir="rtl">
+        <div className="flex-1 p-6 pb-10">
+          <div className="flex justify-between items-center mb-8">
+            <button onClick={() => setAllSubjects([])} className="p-2 bg-white rounded-xl shadow-sm"><LogOut size={20} className="text-rose-500"/></button>
+            <div className="text-right">
+              <h1 className="text-xl font-black text-slate-800">{allSubjects[0].name}</h1>
+              <p className="text-xs font-bold text-slate-400">الصف: {allSubjects[0].className}</p>
+            </div>
+          </div>
+
+          <h2 className="text-lg font-black text-[#1e3a8a] mb-4">اختر المادة الدراسية:</h2>
+          <div className="grid gap-4">
+            {allSubjects.map((sub, idx) => (
+              <button 
+                key={idx}
+                onClick={() => setSelectedSubject(sub)}
+                className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex justify-between items-center hover:border-blue-300 transition-all active:scale-95 text-right"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                    <GraduationCap size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-700">{sub.subject}</h3>
+                    <p className="text-[10px] text-slate-400">آخر تحديث: {formatDate(sub.lastUpdate)}</p>
+                  </div>
+                </div>
+                <ChevronLeft className="text-slate-300" />
+              </button>
+            ))}
           </div>
         </div>
-
-        <h2 className="text-lg font-black text-[#1e3a8a] mb-4">اختر المادة الدراسية:</h2>
-        <div className="grid gap-4">
-          {allSubjects.map((sub, idx) => (
-            <button 
-              key={idx}
-              onClick={() => setSelectedSubject(sub)}
-              className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex justify-between items-center hover:border-blue-300 transition-all active:scale-95 text-right"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                  <GraduationCap size={24} />
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-700">{sub.subject}</h3>
-                  <p className="text-[10px] text-slate-400">آخر تحديث: {formatDate(sub.lastUpdate)}</p>
-                </div>
-              </div>
-              <ChevronLeft className="text-slate-300" />
-            </button>
-          ))}
+        
+        {/* ختم المطور في شاشة المواد */}
+        <div className="py-4 text-center mt-auto">
+            <p className="text-slate-400 text-[10px] font-bold mb-1">برمجة وتطوير</p>
+            <div className="flex items-center justify-center gap-1.5">
+              <Code size={12} className="text-amber-500" />
+              <span className="text-amber-600 text-[11px] font-black tracking-widest">ALZAABI 555</span>
+            </div>
         </div>
       </div>
     );
@@ -133,9 +143,9 @@ function App() {
     const truantCount = s.attendance?.filter((a: any) => a.status === 'truant').length || 0;
 
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-24 relative" dir="rtl">
+      <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 font-sans relative" dir="rtl">
         
-        {/* ✉️ نافذة كتابة الرسالة للمعلم */}
+        {/* نافذة كتابة الرسالة للمعلم */}
         {isMessageOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95">
@@ -162,7 +172,7 @@ function App() {
           </div>
         )}
 
-        <div className="bg-[#1e3a8a] text-white px-6 pt-12 pb-8 rounded-b-[2.5rem] shadow-lg">
+        <div className="bg-[#1e3a8a] text-white px-6 pt-12 pb-8 rounded-b-[2.5rem] shadow-lg shrink-0">
           <div className="flex justify-between items-center mb-4">
             <button onClick={() => setSelectedSubject(null)} className="p-2 bg-white/10 rounded-xl"><ArrowLeft size={20}/></button>
             <h1 className="text-lg font-black">{s.subject}</h1>
@@ -173,7 +183,7 @@ function App() {
           </div>
         </div>
 
-        <div className="px-5 -mt-6 space-y-5">
+        <div className="px-5 -mt-6 space-y-5 flex-1 pb-32">
           {/* رصيد النقاط */}
           <div className="bg-white rounded-3xl p-6 shadow-xl flex items-center justify-between">
             <h2 className="font-bold text-slate-500">نقاط التميز في المادة</h2>
@@ -231,14 +241,20 @@ function App() {
         </div>
 
         {/* 💬 الزر العائم للتواصل مع المعلم */}
-        <div className="fixed bottom-6 left-0 right-0 px-6 flex justify-center z-40">
+        <div className="fixed bottom-6 left-0 right-0 px-6 flex flex-col items-center justify-center z-40">
           <button 
             onClick={() => setIsMessageOpen(true)}
-            className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-4 rounded-full font-black flex items-center gap-3 shadow-[0_10px_20px_rgba(245,158,11,0.4)] active:scale-95 transition-all w-full max-w-sm justify-center border-2 border-amber-300"
+            className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-4 rounded-full font-black flex items-center justify-center gap-3 shadow-[0_10px_20px_rgba(245,158,11,0.4)] active:scale-95 transition-all w-full max-w-sm border-2 border-amber-300 mb-4"
           >
             <MessageSquare size={20} />
             تواصل مع المعلم
           </button>
+          
+          {/* ختم المطور أسفل زر التواصل */}
+          <div className="flex items-center justify-center gap-1.5 opacity-60">
+             <Code size={12} className="text-[#1e3a8a]" />
+             <span className="text-[#1e3a8a] text-[10px] font-black tracking-widest">ALZAABI 555</span>
+          </div>
         </div>
 
       </div>
@@ -249,34 +265,52 @@ function App() {
   // 3. واجهة تسجيل الدخول بالرقم المدني
   // =========================================================================
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-[#0f172a] to-[#1e3a8a] p-6 font-sans overflow-hidden" dir="rtl">
-      <div className="text-center mb-10 relative z-10">
-        <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-white/20 shadow-2xl">
-          <QrCode className="w-12 h-12 text-amber-400" />
+    <div className="min-h-screen flex flex-col justify-between items-center bg-gradient-to-br from-[#0f172a] to-[#1e3a8a] p-6 font-sans overflow-hidden relative" dir="rtl">
+      
+      {/* الدوائر التجميلية في الخلفية */}
+      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-blue-500/20 rounded-full mix-blend-screen filter blur-3xl"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-amber-500/20 rounded-full mix-blend-screen filter blur-3xl"></div>
+
+      <div className="w-full flex-1 flex flex-col justify-center items-center relative z-10">
+        <div className="text-center mb-10">
+          <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-white/20 shadow-2xl relative">
+            <QrCode className="w-12 h-12 text-amber-400 relative z-10" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/20 to-transparent rounded-[2rem]"></div>
+          </div>
+          <h1 className="text-4xl font-black text-white mb-2">راصد لولي الامر</h1>
+          <p className="text-blue-200 text-sm font-bold">بوابة متابعة الطالب</p>
         </div>
-        <h1 className="text-4xl font-black text-white mb-2">راصد للآباء</h1>
-        <p className="text-blue-200 text-sm font-bold">يرجى إدخال الرقم المدني للطالب</p>
+
+        <div className="w-full max-w-sm bg-white rounded-[2rem] p-8 shadow-2xl">
+          <form onSubmit={handleLogin} className="space-y-6">
+            <input 
+              type="number" 
+              value={civilID}
+              onChange={(e) => setCivilID(e.target.value)}
+              placeholder="أدخل الرقم المدني"
+              className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black tracking-[0.2em] text-[#1e3a8a] outline-none focus:border-amber-400 transition-colors"
+            />
+            {error && <div className="text-rose-500 text-xs font-bold text-center bg-rose-50 p-2 rounded-lg">{error}</div>}
+            <button 
+              type="submit" 
+              disabled={isLoading || !civilID}
+              className="w-full bg-gradient-to-l from-[#1e3a8a] to-blue-700 text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-lg disabled:opacity-70 transition-all active:scale-95"
+            >
+              {isLoading ? <Loader2 className="animate-spin" /> : <>دخول <ArrowLeft size={18} /></>}
+            </button>
+          </form>
+        </div>
       </div>
 
-      <div className="w-full max-w-sm bg-white rounded-[2rem] p-8 shadow-2xl relative z-10">
-        <form onSubmit={handleLogin} className="space-y-6">
-          <input 
-            type="number" 
-            value={civilID}
-            onChange={(e) => setCivilID(e.target.value)}
-            placeholder="الرقم المدني"
-            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black tracking-[0.2em] text-slate-800 outline-none focus:border-[#1e3a8a]"
-          />
-          {error && <div className="text-rose-500 text-xs font-bold text-center">{error}</div>}
-          <button 
-            type="submit" 
-            disabled={isLoading || !civilID}
-            className="w-full bg-[#1e3a8a] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-lg disabled:opacity-70 transition-all active:scale-95"
-          >
-            {isLoading ? <Loader2 className="animate-spin" /> : <>دخول <ArrowLeft size={18} /></>}
-          </button>
-        </form>
+      {/* ختم المطور الفخم في أسفل شاشة الدخول */}
+      <div className="pt-8 text-center relative z-10">
+        <p className="text-blue-300/50 text-[10px] font-bold mb-1">برمجة وتطوير</p>
+        <div className="flex items-center justify-center gap-1.5 opacity-80">
+          <Code size={14} className="text-amber-400" />
+          <span className="text-amber-400 text-xs font-black tracking-widest">محمد الزعابي/معلم الدراسات الاجتماعية</span>
+        </div>
       </div>
+
     </div>
   );
 }
