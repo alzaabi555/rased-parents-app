@@ -1,11 +1,11 @@
 {
   "name": "rased-parents",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && capacitor-assets generate --android",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -21,6 +21,7 @@
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
+    "@capacitor/assets": "latest",
     "@capacitor/cli": "^8.2.0",
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
