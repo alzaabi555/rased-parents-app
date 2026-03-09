@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   QrCode, ArrowLeft, Loader2, 
   LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, 
-  GraduationCap, MessageSquare, Send, X, Code, User, RefreshCw
+  GraduationCap, MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake
 } from 'lucide-react';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
@@ -14,13 +14,15 @@ function App() {
   const [error, setError] = useState('');
   const [allSubjects, setAllSubjects] = useState<any[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
+  
+  // حالة الشاشة الترحيبية
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
 
   // حالات نافذة المراسلة 
   const [isMessageOpen, setIsMessageOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
-  // 1. جلب البيانات (تستخدم لتسجيل الدخول، التحديث، والدخول التلقائي)
   const fetchStudentData = async (id: string, isManualRefresh = false) => {
     if (!id.trim()) return setError('الرجاء إدخال الرقم المدني للطالب.');
     
@@ -34,8 +36,17 @@ function App() {
 
       if (result.status === 'success') {
         setAllSubjects(result.subjects);
-        // حفظ الرقم المدني في ذاكرة الجهاز لعدم طلبه مرة أخرى
         localStorage.setItem('rased_parent_civil_id', id.trim());
+        
+        // إظهار شاشة الترحيب فقط عند الدخول وليس عند تحديث الصفحة يدوياً
+        if (!isManualRefresh) {
+          setShowWelcomeScreen(true);
+          // إخفاء الشاشة بعد 2.5 ثانية
+          setTimeout(() => {
+            setShowWelcomeScreen(false);
+          }, 2500);
+        }
+
       } else {
         setError('لم يتم العثور على بيانات لهذا الرقم المدني.');
         if (!isManualRefresh) localStorage.removeItem('rased_parent_civil_id');
@@ -48,7 +59,6 @@ function App() {
     }
   };
 
-  // 2. التحقق من وجود جلسة سابقة عند فتح التطبيق
   useEffect(() => {
     const savedID = localStorage.getItem('rased_parent_civil_id');
     if (savedID) {
@@ -108,13 +118,38 @@ function App() {
   };
 
   // =========================================================================
-  // واجهة 1: اختيار المادة (تم التحديث لتكون عصرية وتدعم التمرير)
+  // شاشة الشكر والترحيب المؤقتة
+  // =========================================================================
+  if (showWelcomeScreen && allSubjects.length > 0) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#1e3a8a] to-blue-700 p-6 font-sans text-center relative overflow-hidden animate-in fade-in duration-500" dir="rtl">
+        {/* تأثيرات بصرية للخلفية */}
+        <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-amber-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-blue-400/20 rounded-full blur-3xl"></div>
+        
+        <div className="relative z-10 flex flex-col items-center animate-in slide-in-from-bottom-8 duration-700">
+          <div className="bg-white/10 p-6 rounded-full mb-8 shadow-[0_0_30px_rgba(251,191,36,0.2)] animate-pulse">
+            <HeartHandshake size={72} className="text-amber-400" />
+          </div>
+          <h1 className="text-3xl font-black text-white mb-4">شكراً لاهتمامك!</h1>
+          <p className="text-blue-100 text-lg font-bold leading-relaxed max-w-xs">
+             متابعتك المستمرة هي سر نجاح وتفوق الطالب
+             <span className="text-amber-400 text-2xl block mt-4 font-black bg-white/10 py-2 px-4 rounded-2xl shadow-inner">
+               {allSubjects[0].name}
+             </span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // واجهة 1: اختيار المادة 
   // =========================================================================
   if (allSubjects.length > 0 && !selectedSubject) {
     return (
-      <div className="h-screen flex flex-col bg-slate-50 font-sans overflow-hidden" dir="rtl">
+      <div className="h-screen flex flex-col bg-slate-50 font-sans overflow-hidden animate-in fade-in duration-500" dir="rtl">
         
-        {/* هيدر البطاقة الشخصية للطالب */}
         <div className="bg-gradient-to-br from-[#1e3a8a] to-blue-600 px-6 pt-12 pb-8 rounded-b-[2.5rem] shadow-xl shrink-0 relative overflow-hidden">
           <div className="absolute top-[-20%] left-[-10%] w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
           
@@ -132,7 +167,6 @@ function App() {
           </div>
         </div>
 
-        {/* شريط الأدوات (تحديث وخروج) */}
         <div className="px-6 mt-6 flex justify-between items-center shrink-0">
           <h2 className="text-lg font-black text-slate-800">المواد الدراسية</h2>
           <div className="flex gap-3">
@@ -152,7 +186,6 @@ function App() {
           </div>
         </div>
 
-        {/* قائمة المواد (قابلة للتمرير) */}
         <div className="flex-1 overflow-y-auto px-6 mt-4 pb-20 space-y-4">
           {allSubjects.map((sub, idx) => (
             <button 
@@ -178,7 +211,6 @@ function App() {
           ))}
         </div>
         
-        {/* ختم المطور */}
         <div className="py-4 text-center shrink-0 bg-slate-50 border-t border-slate-200/50">
             <p className="text-slate-400 text-[10px] font-bold mb-1">برمجة وتطوير</p>
             <div className="flex items-center justify-center gap-1.5">
@@ -191,7 +223,7 @@ function App() {
   }
 
   // =========================================================================
-  // واجهة 2: لوحة قيادة المادة (تبقى كما هي تقريباً مع التأكد من التمرير)
+  // واجهة 2: لوحة قيادة المادة
   // =========================================================================
   if (selectedSubject) {
     const s = selectedSubject;
@@ -204,7 +236,6 @@ function App() {
     return (
       <div className="h-screen flex flex-col bg-slate-50 text-slate-800 font-sans relative overflow-hidden" dir="rtl">
         
-        {/* نافذة المراسلة */}
         {isMessageOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95">
@@ -242,7 +273,6 @@ function App() {
           </div>
         </div>
 
-        {/* المحتوى القابل للتمرير */}
         <div className="px-5 -mt-4 space-y-5 flex-1 overflow-y-auto pt-8 pb-32">
           <div className="bg-white rounded-3xl p-6 shadow-xl flex items-center justify-between">
             <h2 className="font-bold text-slate-500">نقاط التميز في المادة</h2>
@@ -296,7 +326,6 @@ function App() {
           </div>
         </div>
 
-        {/* الزر العائم */}
         <div className="absolute bottom-6 left-0 right-0 px-6 flex flex-col items-center justify-center z-40 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent pt-6 pointer-events-none">
           <button 
             onClick={() => setIsMessageOpen(true)}
@@ -330,7 +359,6 @@ function App() {
         </div>
 
         <div className="w-full max-w-sm bg-white rounded-[2rem] p-8 shadow-2xl relative">
-          {/* دائرة التحميل عند الدخول التلقائي */}
           {isLoading && !civilID ? (
              <div className="flex flex-col items-center justify-center py-8">
                <Loader2 className="animate-spin text-[#1e3a8a] w-10 h-10 mb-4" />
@@ -362,7 +390,7 @@ function App() {
         <p className="text-blue-300/50 text-[10px] font-bold mb-1">برمجة وتطوير</p>
         <div className="flex items-center justify-center gap-1.5 opacity-80">
           <Code size={14} className="text-amber-400" />
-          <span className="text-amber-400 text-xs font-black tracking-widest">ALZAABI 555</span>
+          <span className="text-amber-400 text-xs font-black tracking-widest">محمد الزعابي / معلم الدراسات الاجتماعية</span>
         </div>
       </div>
 
