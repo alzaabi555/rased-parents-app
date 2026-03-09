@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   QrCode, ArrowLeft, Loader2, 
-  LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, GraduationCap
+  LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, 
+  GraduationCap, MessageSquare, Send, X
 } from 'lucide-react';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
@@ -12,6 +13,11 @@ function App() {
   const [error, setError] = useState('');
   const [allSubjects, setAllSubjects] = useState<any[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
+
+  // 💬 حالات نافذة المراسلة الجديدة
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,13 +42,47 @@ function App() {
     }
   };
 
+  // 📩 دالة إرسال الملاحظة للمعلم
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) return;
+    setIsSendingMsg(true);
+
+    const payload = {
+      action: "sendMessage",
+      civilID: civilID,
+      studentName: selectedSubject.name,
+      schoolName: selectedSubject.schoolName || "مدرسة غير محددة",
+      subject: selectedSubject.subject,
+      message: messageText.trim()
+    };
+
+    try {
+      const response = await fetch(GOOGLE_WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        alert('تم إرسال رسالتك للمعلم بنجاح! ✅');
+        setMessageText('');
+        setIsMessageOpen(false);
+      }
+    } catch (error) {
+      alert('حدث خطأ أثناء الإرسال. تأكد من الاتصال بالإنترنت.');
+    } finally {
+      setIsSendingMsg(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   // =========================================================================
-  // 1. واجهة اختيار المادة (Subject Selection)
+  // 1. واجهة اختيار المادة
   // =========================================================================
   if (allSubjects.length > 0 && !selectedSubject) {
     return (
@@ -81,15 +121,47 @@ function App() {
   }
 
   // =========================================================================
-  // 2. لوحة قيادة المادة المختارة (Subject Dashboard)
+  // 2. لوحة قيادة المادة المختارة + نافذة المراسلة
   // =========================================================================
   if (selectedSubject) {
     const s = selectedSubject;
     const pos = s.behaviors?.filter((b: any) => b.type === 'positive') || [];
     const neg = s.behaviors?.filter((b: any) => b.type === 'negative') || [];
+    
+    // حساب إحصائيات الغياب والتسرب
+    const absenceCount = s.attendance?.filter((a: any) => a.status === 'absent').length || 0;
+    const truantCount = s.attendance?.filter((a: any) => a.status === 'truant').length || 0;
 
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-10" dir="rtl">
+      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-24 relative" dir="rtl">
+        
+        {/* ✉️ نافذة كتابة الرسالة للمعلم */}
+        {isMessageOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl animate-in zoom-in-95">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-black text-[#1e3a8a] flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5"/> رسالة لمعلم المادة
+                </h3>
+                <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200"><X size={18}/></button>
+              </div>
+              <textarea 
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                placeholder="اكتب ملاحظاتك، استفساراتك، أو أعذار الغياب هنا..."
+                className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-bold resize-none outline-none focus:border-[#1e3a8a] mb-4"
+              ></textarea>
+              <button 
+                onClick={handleSendMessage}
+                disabled={!messageText.trim() || isSendingMsg}
+                className="w-full bg-[#1e3a8a] text-white py-3.5 rounded-xl font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all"
+              >
+                {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال <Send size={18}/></>}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-[#1e3a8a] text-white px-6 pt-12 pb-8 rounded-b-[2.5rem] shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <button onClick={() => setSelectedSubject(null)} className="p-2 bg-white/10 rounded-xl"><ArrowLeft size={20}/></button>
@@ -110,7 +182,21 @@ function App() {
             </div>
           </div>
 
-          {/* السلوكيات والدرجات */}
+          {/* سجل الغياب والتسرب */}
+          {(absenceCount > 0 || truantCount > 0) && (
+            <div className="flex gap-4">
+              <div className="flex-1 bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col items-center text-center">
+                <span className="text-xs font-bold text-slate-500 mb-1">أيام الغياب</span>
+                <span className="text-2xl font-black text-rose-500">{absenceCount}</span>
+              </div>
+              <div className="flex-1 bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col items-center text-center">
+                <span className="text-xs font-bold text-slate-500 mb-1">مرات التسرب</span>
+                <span className="text-2xl font-black text-purple-600">{truantCount}</span>
+              </div>
+            </div>
+          )}
+
+          {/* السلوكيات */}
           <div className="grid grid-cols-2 gap-4">
              <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100">
                 <div className="flex items-center gap-2 mb-2 text-emerald-600 border-b pb-2"><ThumbsUp size={14} /><h3 className="font-bold text-xs">إيجابي</h3></div>
@@ -130,6 +216,7 @@ function App() {
              </div>
           </div>
 
+          {/* الدرجات */}
           <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-4 text-indigo-600"><BookOpen size={18}/><h3 className="font-black">سجل الدرجات</h3></div>
             <div className="space-y-2">
@@ -142,6 +229,18 @@ function App() {
             </div>
           </div>
         </div>
+
+        {/* 💬 الزر العائم للتواصل مع المعلم */}
+        <div className="fixed bottom-6 left-0 right-0 px-6 flex justify-center z-40">
+          <button 
+            onClick={() => setIsMessageOpen(true)}
+            className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-4 rounded-full font-black flex items-center gap-3 shadow-[0_10px_20px_rgba(245,158,11,0.4)] active:scale-95 transition-all w-full max-w-sm justify-center border-2 border-amber-300"
+          >
+            <MessageSquare size={20} />
+            تواصل مع المعلم
+          </button>
+        </div>
+
       </div>
     );
   }
