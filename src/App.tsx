@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   QrCode, ArrowLeft, Loader2, 
   LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, 
-  GraduationCap, MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake
+  GraduationCap, MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
+  Star // ✅ أيقونة النجمة للوسام الجديد
 } from 'lucide-react';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
@@ -215,7 +216,7 @@ function App() {
             <p className="text-slate-400 text-[10px] font-bold mb-1">برمجة وتطوير</p>
             <div className="flex items-center justify-center gap-1.5">
               <Code size={12} className="text-amber-500" />
-              <span className="text-amber-600 text-[11px] font-black tracking-widest">ALZAABI 555</span>
+              <span className="text-amber-600 text-[11px] font-black tracking-widest">MOHAMMED ALZAABI</span>
             </div>
         </div>
       </div>
@@ -227,7 +228,16 @@ function App() {
   // =========================================================================
   if (selectedSubject) {
     const s = selectedSubject;
-    const pos = s.behaviors?.filter((b: any) => b.type === 'positive') || [];
+    
+    // ✅ فلترة وفصل السلوكيات
+    const allPos = s.behaviors?.filter((b: any) => b.type === 'positive') || [];
+    
+    // حساب مرات الانضباط لاستخدامها في الوسام الذهبي
+    const disciplineCount = allPos.filter((b: any) => b.description === 'هدوء وانضباط').length;
+    
+    // استبعاد "هدوء وانضباط" من قائمة العرض لتجنب التكرار
+    const displayPos = allPos.filter((b: any) => b.description !== 'هدوء وانضباط');
+    
     const neg = s.behaviors?.filter((b: any) => b.type === 'negative') || [];
     
     const absenceCount = s.attendance?.filter((a: any) => a.status === 'absent').length || 0;
@@ -274,10 +284,24 @@ function App() {
         </div>
 
         <div className="px-5 -mt-4 space-y-5 flex-1 overflow-y-auto pt-8 pb-32">
-          <div className="bg-white rounded-3xl p-6 shadow-xl flex items-center justify-between">
-            <h2 className="font-bold text-slate-500">نقاط التميز في المادة</h2>
-            <div className="bg-amber-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-amber-600 border border-amber-100">
-              <Trophy size={20} /><span className="text-xl font-black">{s.totalPoints}</span>
+          
+          {/* ✅ قسم الأوسمة والنقاط المحدث */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-3xl p-5 shadow-xl flex flex-col items-center justify-center text-center gap-2">
+              <h2 className="font-bold text-xs text-slate-500">نقاط التميز</h2>
+              <div className="bg-blue-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-blue-600 border border-blue-100">
+                <Trophy size={20} /><span className="text-xl font-black">{s.totalPoints}</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-5 shadow-xl flex flex-col items-center justify-center text-center gap-2 relative overflow-hidden">
+              <div className="absolute top-[-10px] right-[-10px] text-amber-100 opacity-50">
+                <Star size={60} fill="currentColor" />
+              </div>
+              <h2 className="font-bold text-xs text-slate-500 relative z-10">أيام الانضباط</h2>
+              <div className="bg-amber-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-amber-600 border border-amber-100 relative z-10">
+                <Star size={20} fill="currentColor" /><span className="text-xl font-black">{disciplineCount}</span>
+              </div>
             </div>
           </div>
 
@@ -295,20 +319,22 @@ function App() {
           )}
 
           <div className="grid grid-cols-2 gap-4">
+             {/* ✅ قائمة الإيجابيات بعد الفلترة */}
              <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100">
-                <div className="flex items-center gap-2 mb-2 text-emerald-600 border-b pb-2"><ThumbsUp size={14} /><h3 className="font-bold text-xs">إيجابي</h3></div>
-                <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
-                  {pos.map((b: any, i: number) => (
+                <div className="flex items-center gap-2 mb-2 text-emerald-600 border-b pb-2"><ThumbsUp size={14} /><h3 className="font-bold text-xs">إنجازات</h3></div>
+                <div className="space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                  {displayPos.length > 0 ? displayPos.map((b: any, i: number) => (
                     <div key={i} className="bg-emerald-50 p-2 rounded-lg"><p className="text-[10px] font-bold text-emerald-900">{b.description}</p></div>
-                  ))}
+                  )) : <div className="text-center text-[10px] text-slate-400 py-2">- لا يوجد حالياً -</div>}
                 </div>
              </div>
+             
              <div className="bg-white rounded-2xl p-4 shadow-sm border border-rose-100">
                 <div className="flex items-center gap-2 mb-2 text-rose-600 border-b pb-2"><ThumbsDown size={14} /><h3 className="font-bold text-xs">تنبيهات</h3></div>
-                <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
-                  {neg.map((b: any, i: number) => (
+                <div className="space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                  {neg.length > 0 ? neg.map((b: any, i: number) => (
                     <div key={i} className="bg-rose-50 p-2 rounded-lg"><p className="text-[10px] font-bold text-rose-900">{b.description}</p></div>
-                  ))}
+                  )) : <div className="text-center text-[10px] text-slate-400 py-2">- لا يوجد -</div>}
                 </div>
              </div>
           </div>
@@ -322,6 +348,9 @@ function App() {
                   <span className="bg-indigo-100 text-indigo-700 font-black text-xs px-3 py-1 rounded-lg">{g.score}</span>
                 </div>
               ))}
+              {(!s.grades || s.grades.length === 0) && (
+                <div className="text-center text-xs font-bold text-slate-400 py-4">لم يتم رصد درجات بعد</div>
+              )}
             </div>
           </div>
         </div>
@@ -390,7 +419,7 @@ function App() {
         <p className="text-blue-300/50 text-[10px] font-bold mb-1">برمجة وتطوير</p>
         <div className="flex items-center justify-center gap-1.5 opacity-80">
           <Code size={14} className="text-amber-400" />
-          <span className="text-amber-400 text-xs font-black tracking-widest">محمد الزعابي / معلم الدراسات الاجتماعية</span>
+          <span className="text-amber-400 text-xs font-black tracking-widest uppercase">Mohammed Alzaabi</span>
         </div>
       </div>
 
