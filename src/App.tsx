@@ -383,7 +383,7 @@ function App() {
             <QrCode className="w-12 h-12 text-amber-400 relative z-10" />
             <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/20 to-transparent rounded-[2rem]"></div>
           </div>
-          <h1 className="text-4xl font-black text-white mb-2">راصد للآباء</h1>
+          <h1 className="text-4xl font-black text-white mb-2">راصد لولي الأمر</h1>
           <p className="text-blue-200 text-sm font-bold">بوابة متابعة الطالب</p>
         </div>
 
