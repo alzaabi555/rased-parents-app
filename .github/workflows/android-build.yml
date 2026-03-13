@@ -63,16 +63,16 @@ jobs:
           fi
           echo "✅ API updated!"
 
-      - name: Create Dummy google-services.json
+      - name: Force Update google-services.json
         run: |
-          if [ ! -f "android/app/google-services.json" ]; then
-            echo "Creating dummy google-services.json to prevent build failure..."
-            mkdir -p android/app
-            echo '{
-              "project_info": { "project_number": "123456789012", "project_id": "dummy-project", "storage_bucket": "dummy-project.appspot.com" },
-              "client": [ { "client_info": { "mobilesdk_app_id": "1:123456789012:android:321abc456def7890", "android_client_info": { "package_name": "com.alzaabi.rased.parents" } }, "oauth_client": [], "api_key": [ { "current_key": "AIzaSyDummyKey" } ], "services": { "appinvite_service": { "other_platform_oauth_client": [] } } } ],
-              "configuration_version": "1"
-            }' > android/app/google-services.json
+          echo "💉 Overwriting google-services.json to match new package name..."
+          mkdir -p android/app
+          rm -f android/app/google-services.json
+          echo '{
+            "project_info": { "project_number": "123456789012", "project_id": "dummy-project", "storage_bucket": "dummy-project.appspot.com" },
+            "client": [ { "client_info": { "mobilesdk_app_id": "1:123456789012:android:321abc456def7890", "android_client_info": { "package_name": "com.alzaabi.rased.parents" } }, "oauth_client": [], "api_key": [ { "current_key": "AIzaSyDummyKey" } ], "services": { "appinvite_service": { "other_platform_oauth_client": [] } } } ],
+            "configuration_version": "1"
+          }' > android/app/google-services.json
           fi
 
       - name: Generate App Icons
