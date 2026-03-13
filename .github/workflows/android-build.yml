@@ -73,7 +73,7 @@ jobs:
             "client": [ { "client_info": { "mobilesdk_app_id": "1:123456789012:android:321abc456def7890", "android_client_info": { "package_name": "com.alzaabi.rased.parents" } }, "oauth_client": [], "api_key": [ { "current_key": "AIzaSyDummyKey" } ], "services": { "appinvite_service": { "other_platform_oauth_client": [] } } } ],
             "configuration_version": "1"
           }' > android/app/google-services.json
-          fi
+         
 
       - name: Generate App Icons
         run: npx capacitor-assets generate --android
