@@ -63,17 +63,21 @@ jobs:
           fi
           echo "✅ API updated!"
 
-      - name: Force Update google-services.json
+      - name: Smart Auto-Update google-services.json
         run: |
-          echo "💉 Overwriting google-services.json to match new package name..."
+          echo "💉 Extracting exact package name from app..."
+          APP_ID=$(grep 'applicationId' android/app/build.gradle | awk -F '"' '{print $2}')
+          echo "Detected Package Name: $APP_ID"
+          
           mkdir -p android/app
           rm -f android/app/google-services.json
+          
           echo '{
             "project_info": { "project_number": "123456789012", "project_id": "dummy-project", "storage_bucket": "dummy-project.appspot.com" },
-            "client": [ { "client_info": { "mobilesdk_app_id": "1:123456789012:android:321abc456def7890", "android_client_info": { "package_name": "com.alzaabi.rased.parents" } }, "oauth_client": [], "api_key": [ { "current_key": "AIzaSyDummyKey" } ], "services": { "appinvite_service": { "other_platform_oauth_client": [] } } } ],
+            "client": [ { "client_info": { "mobilesdk_app_id": "1:123456789012:android:321abc456def7890", "android_client_info": { "package_name": "'"$APP_ID"'" } }, "oauth_client": [], "api_key": [ { "current_key": "AIzaSyDummyKey" } ], "services": { "appinvite_service": { "other_platform_oauth_client": [] } } } ],
             "configuration_version": "1"
           }' > android/app/google-services.json
-         
+          echo "✅ Match successful!"
 
       - name: Generate App Icons
         run: npx capacitor-assets generate --android
