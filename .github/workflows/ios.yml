@@ -15,28 +15,41 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build Web Assets
-        run: npm run build
-
-      - name: Setup iOS Platform (Clean Build)
+      - name: Install Dependencies & Build
         run: |
-          echo "🧹 Removing old iOS folder..."
+          echo "📦 Installing project packages..."
+          npm install
+          echo "🏗️ Building web assets..."
+          npm run build
+
+      - name: The Ultimate iOS Repair & Sync
+        run: |
+          echo "🧹 1. Hard reset iOS platform..."
           rm -rf ios
-          echo "📦 Installing Capacitor iOS..."
+          
+          echo "📥 2. Reinstalling Capacitor iOS..."
           npm install @capacitor/ios --save
-          echo "🍏 Adding iOS platform..."
+          
+          echo "🍏 3. Generating iOS platform..."
           npx cap add ios
-          echo "🔄 Syncing iOS platform..."
+          
+          echo "🔍 4. Enforcing Podfile existence..."
+          if [ ! -f "ios/App/Podfile" ]; then
+            echo "⚠️ Podfile is missing! Injecting the default Capacitor Podfile forcibly..."
+            mkdir -p ios/App
+            cp node_modules/@capacitor/ios/assets/Podfile ios/App/Podfile
+          else
+            echo "✅ Podfile found normally."
+          fi
+          
+          echo "🔄 5. Syncing Capacitor Plugins..."
           npx cap sync ios
 
-      - name: Explicitly Install CocoaPods
+      - name: Force CocoaPods Workspace
         run: |
-          echo "⚙️ Forcing Pod Install..."
+          echo "⚙️ Running explicit pod install..."
           cd ios/App
-          pod install
+          pod install --repo-update
 
       - name: Build iOS App via Xcode
         run: |
