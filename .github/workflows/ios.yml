@@ -23,6 +23,8 @@ jobs:
 
       - name: Add & Sync iOS Platform
         run: |
+          echo "Installing iOS Capacitor package..."
+          npm install @capacitor/ios
           echo "Adding and Syncing iOS..."
           npx cap add ios || echo "iOS folder already exists"
           npx cap sync ios
