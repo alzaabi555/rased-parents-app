@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import RamadanTheme from './components/RamadanTheme'; // 👈 أضف هذا السطر
+import RamadanTheme from './components/RamadanTheme'; // 👈 استيراد مكون الزينة
 import { 
   QrCode, ArrowLeft, Loader2, 
   LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, 
@@ -128,6 +128,9 @@ function App() {
   if (showWelcomeScreen && allSubjects.length > 0) {
     return (
       <div className={`h-screen flex flex-col items-center justify-center p-6 font-sans text-center relative overflow-hidden animate-in fade-in duration-500 ${isRamadan ? 'bg-gradient-to-br from-[#0f172a] to-[#1e1b4b]' : 'bg-gradient-to-br from-[#1e3a8a] to-blue-700'}`} dir="rtl">
+        {/* 🌙 زرع مكون رمضان هنا */}
+        {isRamadan && <RamadanTheme />}
+
         {/* تأثيرات بصرية للخلفية */}
         <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-amber-400/20 rounded-full blur-3xl"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl"></div>
@@ -154,7 +157,9 @@ function App() {
   if (allSubjects.length > 0 && !selectedSubject) {
     return (
       <div className={`h-screen flex flex-col font-sans overflow-hidden animate-in fade-in duration-500 ${isRamadan ? 'bg-[#0f172a]' : 'bg-slate-50'}`} dir="rtl">
-        
+        {/* 🌙 زرع مكون رمضان هنا */}
+        {isRamadan && <RamadanTheme />}
+
         {/* Header */}
         <div className={`px-6 pt-12 pb-8 rounded-b-[2.5rem] shadow-xl shrink-0 relative overflow-hidden ${isRamadan ? 'bg-[#1e1b4b] border-b border-indigo-500/20' : 'bg-gradient-to-br from-[#1e3a8a] to-blue-600'}`}>
           <div className="absolute top-[-20%] left-[-10%] w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
@@ -248,6 +253,9 @@ function App() {
     return (
       <div className={`h-screen flex flex-col font-sans relative overflow-hidden ${isRamadan ? 'bg-[#0f172a] text-white' : 'bg-slate-50 text-slate-800'}`} dir="rtl">
         
+        {/* 🌙 زرع مكون رمضان هنا */}
+        {isRamadan && <RamadanTheme />}
+
         {/* Message Modal */}
         {isMessageOpen && (
           <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -382,6 +390,9 @@ function App() {
   return (
     <div className={`min-h-screen flex flex-col justify-between items-center p-6 font-sans overflow-hidden relative ${isRamadan ? 'bg-gradient-to-br from-[#0f172a] to-[#1e1b4b]' : 'bg-gradient-to-br from-[#0f172a] to-[#1e3a8a]'}`} dir="rtl">
       
+      {/* 🌙 زرع مكون رمضان هنا */}
+      {isRamadan && <RamadanTheme />}
+
       {/* تأثيرات الإضاءة في الخلفية */}
       <div className={`absolute top-[-10%] left-[-10%] w-64 h-64 rounded-full mix-blend-screen filter blur-3xl ${isRamadan ? 'bg-indigo-500/10' : 'bg-blue-500/20'}`}></div>
       <div className={`absolute bottom-[-10%] right-[-10%] w-64 h-64 rounded-full mix-blend-screen filter blur-3xl ${isRamadan ? 'bg-amber-500/10' : 'bg-amber-500/20'}`}></div>
