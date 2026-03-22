@@ -4,38 +4,53 @@ on:
   workflow_dispatch:
 
 jobs:
-  ios-build:
+  build-ios:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-          
+
       - name: Install Dependencies
         run: npm install
-        
-      - name: Build Web Project
+
+      - name: Build Web Assets
         run: npm run build
-        
-      - name: 🍏 Generate iOS Project (Capacitor 8 SPM)
+
+      - name: Generate Fresh iOS Platform
         run: |
+          echo "🧹 Removing broken iOS folder..."
           rm -rf ios
+          echo "📦 Installing iOS Capacitor package..."
+          npm install @capacitor/ios
+          echo "🍏 Adding iOS platform from scratch..."
           npx cap add ios
+          echo "🔄 Syncing Capacitor..."
           npx cap sync ios
-          
-      - name: 🚀 Build IPA
+
+      - name: Install CocoaPods
         run: |
+          echo "⚙️ Running pod install..."
           cd ios/App
-          
-          # 🪄 تم البناء بنجاح! الآن نأمره بوضع الملف في مجلد build
-          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO SYMROOT=$PWD/build build
-          
-          # تجميع التطبيق إلى صيغة IPA
+          pod install --repo-update
+
+      - name: Build iOS App (Unsigned for SideStore)
+        run: |
+          echo "🔨 Building iOS App via xcodebuild..."
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
+
+      - name: Package into IPA
+        run: |
+          echo "🎁 Packaging .app into .ipa format..."
           mkdir -p Payload
-          cp -r build/Debug-iphoneos/App.app Payload/
-          zip -r ../../Rased-Parent.ipa Payload
-    
+          mv ios/App/build/Release-iphoneos/App.app Payload/
+          zip -r rased-parent.ipa Payload
+
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
