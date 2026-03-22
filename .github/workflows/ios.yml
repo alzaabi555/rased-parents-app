@@ -21,34 +21,32 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      - name: Setup & Build iOS Platform
+      - name: Setup iOS Platform (Clean Build)
         run: |
-          echo "🧹 1. Cleaning up old iOS folder..."
+          echo "🧹 Removing old iOS folder..."
           rm -rf ios
-          
-          echo "🔍 2. Matching Capacitor Version..."
-          CAP_VERSION=$(npx cap --version)
-          echo "Detected Capacitor Version: $CAP_VERSION"
-          npm install @capacitor/ios@$CAP_VERSION
-          
-          echo "🍏 3. Adding iOS Platform from scratch..."
+          echo "📦 Installing Capacitor iOS..."
+          npm install @capacitor/ios --save
+          echo "🍏 Adding iOS platform..."
           npx cap add ios
-          
-          echo "🔄 4. Syncing & Installing Pods..."
+          echo "🔄 Syncing iOS platform..."
           npx cap sync ios
-          
-          echo "📂 5. Verifying workspace exists..."
-          ls -la ios/App
 
-      - name: Build iOS App (Unsigned for SideStore)
+      - name: Explicitly Install CocoaPods
         run: |
-          echo "🔨 Building iOS App via xcodebuild..."
+          echo "⚙️ Forcing Pod Install..."
+          cd ios/App
+          pod install
+
+      - name: Build iOS App via Xcode
+        run: |
+          echo "🔨 Compiling App..."
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
 
       - name: Package into IPA
         run: |
-          echo "🎁 Packaging .app into .ipa format..."
+          echo "🎁 Zipping into IPA format..."
           mkdir -p Payload
           mv ios/App/build/Release-iphoneos/App.app Payload/
           zip -r rased-parent.ipa Payload
