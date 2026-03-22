@@ -26,7 +26,7 @@ jobs:
         run: |
           echo "🧹 Cleaning up..."
           rm -rf ios
-          echo "📥 Installing iOS Capacitor package (البذرة المفقودة)..."
+          echo "📥 Installing iOS Capacitor package..."
           npm install @capacitor/ios
           echo "🍏 Adding iOS platform..."
           npx cap add ios
@@ -38,11 +38,11 @@ jobs:
           echo "🔨 Compiling App..."
           cd ios/App
           
-          # تحميل حزم SPM قبل البناء للتأكد
+          # تحميل حزم SPM قبل البناء
           xcodebuild -resolvePackageDependencies -project App.xcodeproj || true
           
-          # البناء باستخدام الملف الحديث App.xcodeproj
-          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
+          # إجبار أبل على وضع التطبيق في المجلد الذي نريده بالضبط 👈
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO CONFIGURATION_BUILD_DIR=build/Release-iphoneos build
 
       - name: Package into IPA
         run: |
