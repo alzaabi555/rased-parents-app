@@ -15,47 +15,32 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install Dependencies & Build
+      - name: Install Dependencies & Build Web
         run: |
-          echo "📦 Installing project packages..."
+          echo "📦 Installing packages..."
           npm install
           echo "🏗️ Building web assets..."
           npm run build
 
-      - name: The Ultimate iOS Repair & Sync
+      - name: Setup iOS Platform (Modern SPM)
         run: |
-          echo "🧹 1. Hard reset iOS platform..."
+          echo "🧹 Cleaning up..."
           rm -rf ios
-          
-          echo "📥 2. Reinstalling Capacitor iOS..."
-          npm install @capacitor/ios --save
-          
-          echo "🍏 3. Generating iOS platform..."
+          echo "🍏 Adding iOS platform..."
           npx cap add ios
-          
-          echo "🔍 4. Enforcing Podfile existence..."
-          if [ ! -f "ios/App/Podfile" ]; then
-            echo "⚠️ Podfile is missing! Injecting the default Capacitor Podfile forcibly..."
-            mkdir -p ios/App
-            cp node_modules/@capacitor/ios/assets/Podfile ios/App/Podfile
-          else
-            echo "✅ Podfile found normally."
-          fi
-          
-          echo "🔄 5. Syncing Capacitor Plugins..."
+          echo "🔄 Syncing plugins..."
           npx cap sync ios
 
-      - name: Force CocoaPods Workspace
-        run: |
-          echo "⚙️ Running explicit pod install..."
-          cd ios/App
-          pod install --repo-update
-
-      - name: Build iOS App via Xcode
+      - name: Build iOS App via Xcode (SPM Auto-Detect)
         run: |
           echo "🔨 Compiling App..."
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
+          
+          # تحميل حزم SPM قبل البناء للتأكد
+          xcodebuild -resolvePackageDependencies -project App.xcodeproj || true
+          
+          # البناء باستخدام الملف الحديث App.xcodeproj بدلاً من مساحة العمل القديمة
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
 
       - name: Package into IPA
         run: |
