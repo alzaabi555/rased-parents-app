@@ -26,6 +26,8 @@ jobs:
         run: |
           echo "🧹 Cleaning up..."
           rm -rf ios
+          echo "📥 Installing iOS Capacitor package (البذرة المفقودة)..."
+          npm install @capacitor/ios
           echo "🍏 Adding iOS platform..."
           npx cap add ios
           echo "🔄 Syncing plugins..."
@@ -39,7 +41,7 @@ jobs:
           # تحميل حزم SPM قبل البناء للتأكد
           xcodebuild -resolvePackageDependencies -project App.xcodeproj || true
           
-          # البناء باستخدام الملف الحديث App.xcodeproj بدلاً من مساحة العمل القديمة
+          # البناء باستخدام الملف الحديث App.xcodeproj
           xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
 
       - name: Package into IPA
