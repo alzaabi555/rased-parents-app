@@ -4,51 +4,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-ios:
+  ios-build:
     runs-on: macos-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-
+          
       - name: Install Dependencies
         run: npm install
-
-      - name: Build Web Assets
+        
+      - name: Build Web Project
         run: npm run build
-
-      - name: Add & Sync iOS Platform
+        
+      - name: 🍏 Generate iOS Project (Capacitor 8 SPM)
         run: |
-          echo "Installing iOS Capacitor package..."
-          npm install @capacitor/ios
-          echo "Adding and Syncing iOS..."
-          npx cap add ios || echo "iOS folder already exists"
+          rm -rf ios
+          npx cap add ios
           npx cap sync ios
-
-      # 👈 هذه هي "الصدمة الكهربائية" التي أضفناها لإنشاء App.xcworkspace
-      - name: Install CocoaPods (Fix Workspace Issue)
+          
+      - name: 🚀 Build IPA
         run: |
-          echo "Running pod install..."
           cd ios/App
-          pod install --repo-update
-
-      - name: Build iOS App (Unsigned for SideStore)
-        run: |
-          echo "Building iOS App via xcodebuild..."
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
-
-      - name: Package into IPA
-        run: |
-          echo "Packaging .app into .ipa format..."
+          
+          # 🪄 تم البناء بنجاح! الآن نأمره بوضع الملف في مجلد build
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO SYMROOT=$PWD/build build
+          
+          # تجميع التطبيق إلى صيغة IPA
           mkdir -p Payload
-          mv ios/App/build/Release-iphoneos/App.app Payload/
-          zip -r rased-parent.ipa Payload
-
+          cp -r build/Debug-iphoneos/App.app Payload/
+          zip -r ../../Rased-Parent.ipa Payload
+    
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
