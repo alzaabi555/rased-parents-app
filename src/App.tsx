@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import RamadanTheme from './components/RamadanTheme'; // 👈 أضف هذا السطر
 import { 
   QrCode, ArrowLeft, Loader2, 
   LogOut, Trophy, ThumbsUp, ThumbsDown, BookOpen, ChevronLeft, 
