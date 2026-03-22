@@ -1,0 +1,47 @@
+name: Build iOS App (Unsigned IPA for SideStore)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Assets
+        run: npm run build
+
+      - name: Add & Sync iOS Platform
+        run: |
+          echo "Adding and Syncing iOS..."
+          npx cap add ios || echo "iOS folder already exists"
+          npx cap sync ios
+
+      - name: Build iOS App (Unsigned for SideStore)
+        run: |
+          echo "Building iOS App via xcodebuild..."
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
+
+      - name: Package into IPA
+        run: |
+          echo "Packaging .app into .ipa format..."
+          mkdir -p Payload
+          mv ios/App/build/Release-iphoneos/App.app Payload/
+          zip -r rased-parent.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rased-Parent-IPA
+          path: rased-parent.ipa
