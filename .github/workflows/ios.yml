@@ -29,6 +29,13 @@ jobs:
           npx cap add ios || echo "iOS folder already exists"
           npx cap sync ios
 
+      # 👈 هذه هي "الصدمة الكهربائية" التي أضفناها لإنشاء App.xcworkspace
+      - name: Install CocoaPods (Fix Workspace Issue)
+        run: |
+          echo "Running pod install..."
+          cd ios/App
+          pod install --repo-update
+
       - name: Build iOS App (Unsigned for SideStore)
         run: |
           echo "Building iOS App via xcodebuild..."
