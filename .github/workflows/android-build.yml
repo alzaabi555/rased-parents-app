@@ -1,4 +1,4 @@
-name: Build Android App (Signed AAB)
+name: Build Android App (Signed apk)
 
 on:
   workflow_dispatch:
@@ -82,29 +82,31 @@ jobs:
       - name: Generate App Icons
         run: npx capacitor-assets generate --android
 
-      - name: Build Android Release Bundle (AAB)
+      - name: Build Android Release (apk)
         run: |
           cd android
           if [ -f "gradlew" ]; then
             chmod +x gradlew
-            ./gradlew bundleRelease --stacktrace
+            ./gradlew assembleRelease --stacktrace
           else
             echo "Gradlew missing. Falling back to system Gradle..."
-            gradle bundleRelease --stacktrace
+            gradle assembleRelease --stacktrace
           fi
 
-      - name: Sign AAB
+      - name: Sign apk
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
-          releaseDirectory: android/app/build/outputs/bundle/release
+          releaseDirectory: android/app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: Upload Signed AAB
+      - name: Upload Signed apk
         uses: actions/upload-artifact@v4
         with:
-          name: Rased-Parents-Signed-AAB
+          name: Rased-Parents-Signed-apk
           path: ${{steps.sign_app.outputs.signedReleaseFile}}
