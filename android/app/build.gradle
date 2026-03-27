@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.alzaabi.rased.parents"
+    namespace = "com.rased.parents"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.rased.parents"
