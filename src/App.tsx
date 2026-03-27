@@ -37,11 +37,58 @@ function App() {
     setError('');
 
     try {
+      // 🌟 طلب تصريح الإشعارات من الهاتف (مهم جداً)
+      await LocalNotifications.requestPermissions();
+
       const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${id.trim()}`);
       const result = await response.json();
 
       if (result.status === 'success') {
-        setAllSubjects(result.subjects);
+        // ==========================================
+        // 🚨 رادار الإشعارات الذكي (The Notification Radar)
+        // ==========================================
+        const newSubjects = result.subjects;
+        const savedDataString = localStorage.getItem(`rased_data_${id.trim()}`);
+        
+        if (savedDataString) {
+          const oldSubjects = JSON.parse(savedDataString);
+          
+          // حساب إجمالي السلوكيات والدرجات القديمة
+          let oldAlertsCount = 0;
+          oldSubjects.forEach((s: any) => {
+            oldAlertsCount += (s.behaviors?.length || 0) + (s.grades?.length || 0);
+          });
+
+          // حساب إجمالي السلوكيات والدرجات الجديدة
+          let newAlertsCount = 0;
+          newSubjects.forEach((s: any) => {
+            newAlertsCount += (s.behaviors?.length || 0) + (s.grades?.length || 0);
+          });
+
+          // إذا كان هناك شيء جديد، أطلق الإشعار!
+          if (newAlertsCount > oldAlertsCount) {
+            await LocalNotifications.schedule({
+              notifications: [
+                {
+                  title: "تحديث جديد في راصد 🔔",
+                  body: `تم رصد تحديثات جديدة للطالب ${newSubjects[0].name}. افتح التطبيق للتفاصيل.`,
+                  id: new Date().getTime(),
+                  schedule: { at: new Date(Date.now() + 1000) }, // إطلاق الإشعار بعد ثانية
+                  sound: null,
+                  attachments: null,
+                  actionTypeId: "",
+                  extra: null
+                }
+              ]
+            });
+          }
+        }
+
+        // حفظ البيانات الجديدة للمقارنة في المرة القادمة
+        localStorage.setItem(`rased_data_${id.trim()}`, JSON.stringify(newSubjects));
+        // ==========================================
+
+        setAllSubjects(newSubjects);
         localStorage.setItem('rased_parent_civil_id', id.trim());
         
         if (!isManualRefresh) {
