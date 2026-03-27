@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { 
   ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
