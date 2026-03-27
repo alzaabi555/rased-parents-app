@@ -37,7 +37,6 @@ function App() {
 
     try {
       // 🌟 طلب تصريح الإشعارات من الهاتف (مهم جداً)
-      await LocalNotifications.requestPermissions();
 
       const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${id.trim()}`);
       const result = await response.json();
