@@ -36,55 +36,14 @@ function App() {
     setError('');
 
     try {
-      // 🌟 طلب تصريح الإشعارات من الهاتف (مهم جداً)
-
       const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${id.trim()}`);
       const result = await response.json();
 
       if (result.status === 'success') {
-        // ==========================================
-        // 🚨 رادار الإشعارات الذكي (The Notification Radar)
-        // ==========================================
         const newSubjects = result.subjects;
-        const savedDataString = localStorage.getItem(`rased_data_${id.trim()}`);
         
-        if (savedDataString) {
-          const oldSubjects = JSON.parse(savedDataString);
-          
-          // حساب إجمالي السلوكيات والدرجات القديمة
-          let oldAlertsCount = 0;
-          oldSubjects.forEach((s: any) => {
-            oldAlertsCount += (s.behaviors?.length || 0) + (s.grades?.length || 0);
-          });
-
-          // حساب إجمالي السلوكيات والدرجات الجديدة
-          let newAlertsCount = 0;
-          newSubjects.forEach((s: any) => {
-            newAlertsCount += (s.behaviors?.length || 0) + (s.grades?.length || 0);
-          });
-
-          // إذا كان هناك شيء جديد، أطلق الإشعار!
-          if (newAlertsCount > oldAlertsCount) {
-            await LocalNotifications.schedule({
-              notifications: [
-                {
-                  title: "تحديث جديد في راصد 🔔",
-                  body: `تم رصد تحديثات جديدة للطالب ${newSubjects[0].name}. افتح التطبيق للتفاصيل.`,
-                  id: new Date().getTime(),
-                  schedule: { at: new Date(Date.now() + 1000) }, // إطلاق الإشعار بعد ثانية
-                  sound: null,
-                  attachments: null,
-                  actionTypeId: "",
-                  extra: null
-                }
-              ]
-            });
-          }
-        }
-
-        // حفظ البيانات الجديدة للمقارنة في المرة القادمة
+        // حفظ البيانات الجديدة للمقارنة لاحقاً
         localStorage.setItem(`rased_data_${id.trim()}`, JSON.stringify(newSubjects));
-        // ==========================================
 
         setAllSubjects(newSubjects);
         localStorage.setItem('rased_parent_civil_id', id.trim());
@@ -274,7 +233,6 @@ function App() {
               </div>
               <div className="mt-5 flex items-center gap-3">
                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  {/* شريط نسبة وهمي للجمالية كما في التصميم */}
                   <div className="h-full bg-[#1b6d24] rounded-full" style={{ width: `${Math.min(100, (sub.totalPoints || 50) + 40)}%` }}></div>
                 </div>
                 <span className="text-[10px] font-black text-[#1b6d24]">{Math.min(100, (sub.totalPoints || 50) + 40)}%</span>
@@ -417,7 +375,6 @@ function App() {
   };
 
   const renderNotifications = () => {
-    // تجميع التنبيهات من كل المواد لبناء شاشة الإشعارات
     let alerts: any[] = [];
     allSubjects.forEach(sub => {
       sub.behaviors?.filter((b:any)=> b.type === 'negative').forEach((b:any) => alerts.push({...b, subject: sub.subject, kind: 'alert'}));
@@ -437,7 +394,6 @@ function App() {
         </nav>
 
         <div className="space-y-4">
-          {/* كروت بصرية كما في التصميم */}
           <div className="grid grid-cols-2 gap-4 pb-4">
             <div className="bg-[#a0f399]/30 rounded-2xl p-4 flex flex-col justify-between h-32 relative overflow-hidden border border-[#1b6d24]/20">
               <Trophy size={60} className="text-[#1b6d24] opacity-10 absolute -bottom-2 -left-2" />
@@ -451,7 +407,6 @@ function App() {
             </div>
           </div>
 
-          {/* قائمة الإشعارات الديناميكية */}
           {alerts.filter(a => activeAlertTab === 'all' || a.kind === 'alert').map((item, idx) => (
             <div key={idx} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 transition-all hover:-translate-y-1">
               <div className="flex items-start gap-4">
