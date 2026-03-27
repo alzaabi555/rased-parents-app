@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.alzaabi.rased.parents',
+  appId: 'com.rased.parents',
   appName: 'راصد لولي الأمر',
   webDir: 'dist'
 };
