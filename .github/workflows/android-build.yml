@@ -1,4 +1,4 @@
-name: Build Android App (Signed apk)
+name: Build Android App (Signed APK & AAB)
 
 on:
   workflow_dispatch:
@@ -82,20 +82,22 @@ jobs:
       - name: Generate App Icons
         run: npx capacitor-assets generate --android
 
-      - name: Build Android Release (apk)
+      # 👈 التعديل الجراحي: بناء النسختين معاً مع مراعاة السكربت الخاص بك
+      - name: Build Android Release (APK & AAB)
         run: |
           cd android
           if [ -f "gradlew" ]; then
             chmod +x gradlew
-            ./gradlew assembleRelease --stacktrace
+            ./gradlew assembleRelease bundleRelease --stacktrace
           else
             echo "Gradlew missing. Falling back to system Gradle..."
-            gradle assembleRelease --stacktrace
+            gradle assembleRelease bundleRelease --stacktrace
           fi
 
-      - name: Sign apk
+      # 👈 التوقيع الجراحي لنسخة هواوي (APK)
+      - name: Sign APK
         uses: r0adkll/sign-android-release@v1
-        id: sign_app
+        id: sign_apk
         with:
           releaseDirectory: android/app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -105,8 +107,29 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: Upload Signed apk
+      # 👈 التوقيع الجراحي لنسخة جوجل (AAB)
+      - name: Sign AAB
+        uses: r0adkll/sign-android-release@v1
+        id: sign_aab
+        with:
+          releaseDirectory: android/app/build/outputs/bundle/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "35.0.0"
+
+      # 👈 تسليم نسخة هواوي لأولياء الأمور
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rased-Parents-Signed-apk
-          path: ${{steps.sign_app.outputs.signedReleaseFile}}
+          name: Rased-Parents-Signed-APK
+          path: ${{steps.sign_apk.outputs.signedReleaseFile}}
+
+      # 👈 تسليم نسخة جوجل لأولياء الأمور
+      - name: Upload Signed AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rased-Parents-Signed-AAB
+          path: ${{steps.sign_aab.outputs.signedReleaseFile}}
