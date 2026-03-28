@@ -63,6 +63,22 @@ jobs:
           fi
           echo "✅ API updated to 35!"
 
+      # 👈 اللقاح المضاد لتضارب المكتبات (تمت زراعته هنا)
+      - name: Force Stable AndroidX (Fix API 36 Conflict)
+        run: |
+          echo "💉 Injecting resolution strategy to force stable AndroidX versions..."
+          cat <<EOF >> android/app/build.gradle
+
+          configurations.all {
+              resolutionStrategy {
+                  force 'androidx.activity:activity:1.9.3'
+                  force 'androidx.core:core:1.15.0'
+                  force 'androidx.core:core-ktx:1.15.0'
+              }
+          }
+          EOF
+          echo "✅ Stable AndroidX versions enforced!"
+
       - name: Smart Auto-Update google-services.json
         run: |
           echo "💉 Extracting exact package name from app..."
