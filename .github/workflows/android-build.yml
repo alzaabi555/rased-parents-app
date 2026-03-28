@@ -63,7 +63,7 @@ jobs:
           fi
           echo "✅ API updated to 35!"
 
-      # 👈 اللقاح المضاد لتضارب المكتبات (تمت زراعته هنا)
+      # 👈 الحقنة الأولى: الكوكتيل الذهبي المتطابق لمنع الكراش
       - name: Force Stable AndroidX Globally (Fix API 36 Conflict)
         run: |
           echo "💉 Injecting global resolution strategy for all plugins..."
@@ -72,14 +72,31 @@ jobs:
           allprojects {
               configurations.all {
                   resolutionStrategy {
+                      force 'androidx.core:core:1.13.1'
+                      force 'androidx.core:core-ktx:1.13.1'
                       force 'androidx.activity:activity:1.9.3'
-                      force 'androidx.core:core:1.15.0'
-                      force 'androidx.core:core-ktx:1.15.0'
+                      force 'androidx.fragment:fragment:1.8.5'
+                      force 'androidx.appcompat:appcompat:1.7.0'
                   }
               }
           }
           EOF
           echo "✅ Stable AndroidX versions enforced globally!"
+
+      # 👈 الحقنة الثانية: زرع قلب التطبيق بالقوة الجبرية
+      - name: 🛡️ Enforce MainActivity Presence
+        run: |
+          echo "💉 Guaranteeing MainActivity is correctly placed..."
+          APP_ID=$(grep 'applicationId' android/app/build.gradle | awk -F '"' '{print $2}')
+          echo "Detected App ID: $APP_ID"
+          DIR="android/app/src/main/java/$(echo $APP_ID | tr '.' '/')"
+          mkdir -p $DIR
+          cat <<EOF > $DIR/MainActivity.java
+          package $APP_ID;
+          import com.getcapacitor.BridgeActivity;
+          public class MainActivity extends BridgeActivity {}
+          EOF
+          echo "✅ MainActivity injected successfully!"
 
       - name: Smart Auto-Update google-services.json
         run: |
@@ -100,7 +117,6 @@ jobs:
       - name: Generate App Icons
         run: npx capacitor-assets generate --android
 
-      # 👈 التعديل الجراحي: بناء النسختين معاً مع مراعاة السكربت الخاص بك
       - name: Build Android Release (APK & AAB)
         run: |
           cd android
@@ -112,7 +128,6 @@ jobs:
             gradle assembleRelease bundleRelease --stacktrace
           fi
 
-      # 👈 التوقيع الجراحي لنسخة هواوي (APK)
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
         id: sign_apk
@@ -125,7 +140,6 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "35.0.0"
 
-      # 👈 التوقيع الجراحي لنسخة جوجل (AAB)
       - name: Sign AAB
         uses: r0adkll/sign-android-release@v1
         id: sign_aab
@@ -138,14 +152,12 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "35.0.0"
 
-      # 👈 تسليم نسخة هواوي لأولياء الأمور
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
           name: Rased-Parents-Signed-APK
           path: ${{steps.sign_apk.outputs.signedReleaseFile}}
 
-      # 👈 تسليم نسخة جوجل لأولياء الأمور
       - name: Upload Signed AAB
         uses: actions/upload-artifact@v4
         with:
