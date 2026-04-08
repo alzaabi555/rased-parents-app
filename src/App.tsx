@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
   Star, School, Fingerprint, LayoutGrid, Bell, AlertTriangle, 
   ClipboardList, History
 } from 'lucide-react';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
 
 // =========================================================================
-// 💎 1. الغلاف الزجاجي الفاخر (مصمم للعمل داخلياً بدون ملفات خارجية)
+// 💎 1. الغلاف الزجاجي الفاخر
 // =========================================================================
 const GlassLayout: React.FC<{
   title: string;
@@ -21,8 +23,6 @@ const GlassLayout: React.FC<{
   children: React.ReactNode;
 }> = ({ title, subtitle, icon, rightAction, showBack, onBack, children }) => (
   <div className="h-full w-full overflow-y-auto custom-scrollbar bg-[#f8fafc]" dir="rtl">
-    
-    {/* الهيدر الزجاجي الثابت (Sticky Header) */}
     <header className="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl border-b border-slate-200/80 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.02)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
@@ -52,8 +52,6 @@ const GlassLayout: React.FC<{
         )}
       </div>
     </header>
-
-    {/* المحتوى (ينزلق تحت الهيدر) */}
     <main className="px-5 pt-6 pb-[120px]">
       {children}
     </main>
@@ -61,7 +59,7 @@ const GlassLayout: React.FC<{
 );
 
 // =========================================================================
-// 💎 2. التطبيق الرئيسي (The Main App)
+// 💎 2. التطبيق الرئيسي
 // =========================================================================
 function App() {
   const [civilID, setCivilID] = useState('');
@@ -79,11 +77,51 @@ function App() {
   const [messageText, setMessageText] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
-  const fetchStudentData = async (id: string, isManualRefresh = false) => {
+  // 🔔 1. طلب صلاحيات الإشعارات عند فتح التطبيق
+  useEffect(() => {
+    const requestPermissions = async () => {
+      if (Capacitor.isNativePlatform()) {
+        await LocalNotifications.requestPermissions();
+      } else if ("Notification" in window) {
+        Notification.requestPermission();
+      }
+    };
+    requestPermissions();
+  }, []);
+
+  // 🔔 2. دالة إرسال الإشعار لشاشة القفل
+  const triggerDeviceNotification = async (studentName: string, newGradesCount: number, newAlertsCount: number) => {
+    let msg = `يوجد تحديثات جديدة للطالب ${studentName}: `;
+    if (newGradesCount > 0) msg += `(${newGradesCount}) درجات جديدة. `;
+    if (newAlertsCount > 0) msg += `(${newAlertsCount}) تنبيهات سلوكية.`;
+
+    if (Capacitor.isNativePlatform()) {
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: new Date().getTime(),
+            title: 'راصد - تحديث جديد 🔔',
+            body: msg,
+            schedule: { at: new Date(Date.now() + 1000) },
+            sound: 'beep.wav'
+          }
+        ]
+      });
+    } else if ("Notification" in window && Notification.permission === "granted") {
+      new Notification('راصد - تحديث جديد 🔔', { body: msg });
+    }
+  };
+
+  // ⚙️ 3. الدالة المعدلة للاتصال بالسحابة (مع ميزة الاستشعار الصامت)
+  const fetchStudentData = async (id: string, isManualRefresh = false, isSilent = false) => {
     if (!id.trim()) return setError('الرجاء إدخال الرقم المدني للطالب.');
-    if (isManualRefresh) setIsRefreshing(true);
-    else setIsLoading(true);
-    setError('');
+    
+    // إظهار دوائر التحميل فقط إذا لم يكن الفحص صامتاً
+    if (!isSilent) {
+        if (isManualRefresh) setIsRefreshing(true);
+        else setIsLoading(true);
+        setError('');
+    }
 
     try {
       const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${id.trim()}`);
@@ -91,31 +129,68 @@ function App() {
 
       if (result.status === 'success') {
         const newSubjects = result.subjects;
+        const cachedDataStr = localStorage.getItem(`rased_data_${id.trim()}`);
+        
+        // 🧠 ذكاء الاستشعار: مقارنة البيانات القديمة بالجديدة
+        if (cachedDataStr) {
+            const oldSubjects = JSON.parse(cachedDataStr);
+            let newGrades = 0;
+            let newAlerts = 0;
+
+            newSubjects.forEach((newSub: any, idx: number) => {
+                const oldSub = oldSubjects[idx];
+                if (oldSub) {
+                    const oldGCount = oldSub.grades?.length || 0;
+                    const newGCount = newSub.grades?.length || 0;
+                    if (newGCount > oldGCount) newGrades += (newGCount - oldGCount);
+
+                    const oldBCount = oldSub.behaviors?.length || 0;
+                    const newBCount = newSub.behaviors?.length || 0;
+                    if (newBCount > oldBCount) newAlerts += (newBCount - oldBCount);
+                }
+            });
+
+            // إذا كان هناك بيانات جديدة، أطلق الإشعار!
+            if (newGrades > 0 || newAlerts > 0) {
+                triggerDeviceNotification(newSubjects[0]?.name, newGrades, newAlerts);
+            }
+        }
+
         localStorage.setItem(`rased_data_${id.trim()}`, JSON.stringify(newSubjects));
         setAllSubjects(newSubjects);
         localStorage.setItem('rased_parent_civil_id', id.trim());
         
-        if (!isManualRefresh) {
+        if (!isManualRefresh && !isSilent) {
           setShowWelcomeScreen(true);
           setTimeout(() => setShowWelcomeScreen(false), 2500);
         }
       } else {
-        setError('لم يتم العثور على بيانات لهذا الرقم المدني.');
-        if (!isManualRefresh) localStorage.removeItem('rased_parent_civil_id');
+        if (!isSilent) setError('لم يتم العثور على بيانات لهذا الرقم المدني.');
+        if (!isManualRefresh && !isSilent) localStorage.removeItem('rased_parent_civil_id');
       }
     } catch (err) {
-      setError('خطأ في الاتصال بالسحابة.');
+      if (!isSilent) setError('خطأ في الاتصال بالسحابة.');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (!isSilent) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+      }
     }
   };
 
+  // ⏱️ 4. مؤقت الاستشعار الصامت (يشتغل كل دقيقة تلقائياً)
   useEffect(() => {
     const savedID = localStorage.getItem('rased_parent_civil_id');
     if (savedID) {
       setCivilID(savedID);
-      fetchStudentData(savedID);
+      fetchStudentData(savedID); // جلب مبدئي
+
+      // نبض صامت كل 60 ثانية (لإشعار ولي الأمر فور التحديث)
+      const silentInterval = setInterval(() => {
+          fetchStudentData(savedID, false, true);
+      }, 60000); 
+
+      return () => clearInterval(silentInterval);
     }
   }, []);
 
@@ -271,7 +346,7 @@ function App() {
     </div>
   );
 
-  // ==================== 4. شاشة تفاصيل المادة (Compact Lists) ====================
+  // ==================== 4. شاشة تفاصيل المادة ====================
   const renderSubjectDetails = () => {
     const s = selectedSubject;
     const allPos = s.behaviors?.filter((b: any) => b.type === 'positive') || [];
@@ -294,8 +369,6 @@ function App() {
           }
         >
           <div className="space-y-5">
-            
-            {/* الإحصائيات */}
             <section className="grid grid-cols-2 gap-3">
               <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100"><Trophy size={18}/></div>
@@ -314,7 +387,6 @@ function App() {
             </section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* الإنجازات (مدمجة ومحكومة الطول مع تمرير داخلي) */}
               <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col max-h-[300px]">
                 <h3 className="text-sm font-black text-[#000666] mb-3 flex items-center gap-2 px-1 shrink-0">
                     <ThumbsUp size={18} className="text-emerald-500"/> إنجازات إيجابية
@@ -332,7 +404,6 @@ function App() {
                 </div>
               </section>
 
-              {/* التنبيهات */}
               <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col max-h-[300px]">
                 <h3 className="text-sm font-black text-[#000666] mb-3 flex items-center gap-2 px-1 shrink-0">
                     <AlertTriangle size={18} className="text-rose-500"/> تنبيهات وملاحظات
@@ -351,7 +422,6 @@ function App() {
               </section>
             </div>
 
-            {/* سجل الدرجات */}
             <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col max-h-[350px]">
               <h3 className="text-sm font-black text-[#000666] mb-3 flex items-center gap-2 px-1 shrink-0">
                   <ClipboardList size={18} className="text-[#000666]"/> سجل الدرجات
@@ -384,22 +454,6 @@ function App() {
             </button>
           </div>
         </GlassLayout>
-
-        {/* نافذة المراسلة المنبثقة (Modal) */}
-        {isMessageOpen && (
-          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
-            <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-black text-[#000666] flex items-center gap-2"><MessageSquare size={20}/> رسالة للمعلم</h3>
-                <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200"><X size={18}/></button>
-              </div>
-              <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب ملاحظاتك أو أعذار الغياب..." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-bold resize-none outline-none focus:border-[#000666] mb-4"></textarea>
-              <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#000666] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all shadow-lg">
-                {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -510,6 +564,22 @@ function App() {
           <span className="text-[9px] font-black mt-1">حسابي</span>
         </button>
       </nav>
+
+      {/* نافذة المراسلة المنبثقة */}
+      {isMessageOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
+          <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-black text-[#000666] flex items-center gap-2"><MessageSquare size={20}/> رسالة للمعلم</h3>
+              <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200"><X size={18}/></button>
+            </div>
+            <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب ملاحظاتك أو أعذار الغياب..." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-bold resize-none outline-none focus:border-[#000666] mb-4"></textarea>
+            <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#000666] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all shadow-lg">
+              {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
