@@ -8,6 +8,57 @@ import {
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
 
+// =========================================================================
+// 💉 مكون الغلاف الزجاجي الداخلي (يحاكي PageLayout لتطبيق المعلم)
+// =========================================================================
+const GlassLayout: React.FC<{
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  rightAction?: React.ReactNode;
+  showBack?: boolean;
+  onBack?: () => void;
+  children: React.ReactNode;
+}> = ({ title, subtitle, icon, rightAction, showBack, onBack, children }) => (
+  <div className="flex flex-col min-h-[100dvh] relative">
+    {/* الهيدر الزجاجي الثابت */}
+    <header className="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl border-b border-slate-200/60 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {showBack && (
+            <button onClick={onBack} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-[#000666] transition-colors active:scale-95 shrink-0">
+              <ArrowLeft size={20}/>
+            </button>
+          )}
+          {icon && !showBack && (
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[#000666] shrink-0 shadow-inner">
+              {icon}
+            </div>
+          )}
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-black text-lg md:text-xl text-slate-800 leading-tight truncate">{title}</h1>
+            {subtitle && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-[#000666] border border-indigo-100 mt-1 inline-block w-fit">
+                {subtitle}
+              </span>
+            )}
+          </div>
+        </div>
+        {rightAction && (
+          <div className="shrink-0 flex items-center gap-2">
+            {rightAction}
+          </div>
+        )}
+      </div>
+    </header>
+
+    {/* المحتوى المنزلق */}
+    <main className="flex-1 px-5 pt-6 pb-32">
+      {children}
+    </main>
+  </div>
+);
+
 function App() {
   // ================= الحالات الأساسية للتطبيق =================
   const [civilID, setCivilID] = useState('');
@@ -41,7 +92,6 @@ function App() {
 
       if (result.status === 'success') {
         const newSubjects = result.subjects;
-        
         localStorage.setItem(`rased_data_${id.trim()}`, JSON.stringify(newSubjects));
         setAllSubjects(newSubjects);
         localStorage.setItem('rased_parent_civil_id', id.trim());
@@ -175,46 +225,34 @@ function App() {
   }
 
   // =========================================================================
-  // 3. شاشة الداشبورد (الرئيسية) - مع الهيدر الزجاجي
+  // 3. شاشة الداشبورد (الرئيسية)
   // =========================================================================
   const renderDashboard = () => (
-    <div className="animate-in fade-in duration-500 pb-32">
-      {/* 💉 الهيدر الزجاجي الاحترافي المدمج */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-2xl shadow-sm border-b border-slate-200/60 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[#000666]">
-              <User size={24} />
-            </div>
-            <div>
-              <h1 className="font-black text-lg text-slate-800 leading-tight">{allSubjects[0]?.name}</h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-[#000666] border border-indigo-100">
-                الصف: {allSubjects[0]?.className}
-              </span>
-            </div>
-          </div>
-          <button onClick={() => fetchStudentData(civilID, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#000666] active:scale-95 transition-all">
+    <div className="animate-in fade-in duration-500">
+      <GlassLayout
+        title={allSubjects[0]?.name || 'الطالب'}
+        subtitle={`الصف: ${allSubjects[0]?.className || '...'}`}
+        icon={<User size={24} />}
+        rightAction={
+          <button onClick={() => fetchStudentData(civilID, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#000666] active:scale-95 transition-all shadow-sm">
             <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
           </button>
-        </div>
-      </header>
-
-      {/* المحتوى */}
-      <div className="px-5 mt-6">
-        <h2 className="text-sm font-black text-slate-500 flex items-center gap-2 mb-4 px-1">
-          <BookOpen size={16} className="text-[#000666]"/> المواد الدراسية
+        }
+      >
+        <h2 className="text-sm font-black text-[#000666] flex items-center gap-2 mb-4 px-1">
+          <BookOpen size={18} className="text-[#000666]"/> المواد الدراسية
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {allSubjects.map((sub, idx) => (
-            <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:border-[#000666]/30 cursor-pointer active:scale-[0.98] transition-all">
+            <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 hover:border-[#000666]/30 cursor-pointer active:scale-[0.98] transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-[#000666]">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-[#000666]">
                     <BookOpen size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-slate-800">{sub.subject}</h3>
+                    <h3 className="text-base font-black text-slate-800">{sub.subject}</h3>
                     <p className="text-slate-400 text-[10px] font-bold flex items-center gap-1 mt-0.5">
                       <History size={10} /> آخر تحديث: {formatDate(sub.lastUpdate)}
                     </p>
@@ -222,7 +260,7 @@ function App() {
                 </div>
                 <ChevronLeft size={20} className="text-slate-300" />
               </div>
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-5 flex items-center gap-3">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-[#1b6d24] rounded-full" style={{ width: `${Math.min(100, (sub.totalPoints || 50) + 40)}%` }}></div>
                 </div>
@@ -231,17 +269,17 @@ function App() {
             </div>
           ))}
           {allSubjects.length === 0 && (
-            <div className="col-span-full p-8 text-center text-slate-500 font-bold bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+            <div className="col-span-full p-8 text-center text-slate-500 font-bold bg-slate-50 rounded-3xl border border-dashed border-slate-300">
                لا توجد مواد مضافة حالياً.
             </div>
           )}
         </div>
-      </div>
+      </GlassLayout>
     </div>
   );
 
   // =========================================================================
-  // 4. شاشة تفاصيل المادة - شفط وتصغير (Compact Design)
+  // 4. شاشة تفاصيل المادة - شفط وتصغير (Compact Lists)
   // =========================================================================
   const renderSubjectDetails = () => {
     const s = selectedSubject;
@@ -251,112 +289,110 @@ function App() {
     const neg = s.behaviors?.filter((b: any) => b.type === 'negative') || [];
 
     return (
-      <div className="animate-in slide-in-from-left-4 duration-300 pb-32">
-        {/* 💉 الهيدر الزجاجي المثبت مع الوسام */}
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-2xl shadow-sm border-b border-slate-200/60 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSelectedSubject(null)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-[#000666] transition-colors active:scale-95">
-                <ArrowLeft size={20}/>
-            </button>
-            <h1 className="text-base font-black text-slate-800">{s.subject}</h1>
-          </div>
-          
-          {/* الوسام الصغير (بديل الدائرة العملاقة) */}
-          <div className="flex items-center gap-1.5 bg-[#fff8e1] border border-[#ffecb3] px-3 py-1.5 rounded-xl shadow-sm">
-            <Trophy size={14} className="text-[#f59e0b]" />
-            <span className="text-sm font-black text-[#d97706]" dir="ltr">{s.totalPoints}</span>
-            <span className="text-[9px] font-bold text-[#d97706]/80">نقطة</span>
-          </div>
-        </header>
-
-        <div className="px-5 mt-6 space-y-5">
-          {/* الإحصائيات المصغرة */}
-          <section className="grid grid-cols-2 gap-3">
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0"><Trophy size={18}/></div>
-              <div className="flex flex-col">
-                <p className="text-slate-500 text-[9px] font-bold">إجمالي النقاط</p>
-                <h3 className="text-lg font-black text-slate-800 leading-none">{s.totalPoints}</h3>
-              </div>
+      <div className="animate-in slide-in-from-left-4 duration-300">
+        <GlassLayout
+          title={s.subject}
+          showBack={true}
+          onBack={() => setSelectedSubject(null)}
+          rightAction={
+            <div className="flex items-center gap-1.5 bg-[#fff8e1] border border-[#ffecb3] px-3 py-1.5 rounded-xl shadow-sm">
+              <Trophy size={14} className="text-[#f59e0b]" />
+              <span className="text-sm font-black text-[#d97706]" dir="ltr">{s.totalPoints}</span>
+              <span className="text-[9px] font-bold text-[#d97706]/80">نقطة</span>
             </div>
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0"><Star size={18}/></div>
-              <div className="flex flex-col">
-                <p className="text-slate-500 text-[9px] font-bold">أيام الانضباط</p>
-                <h3 className="text-lg font-black text-slate-800 leading-none">{disciplineCount}</h3>
-              </div>
-            </div>
-          </section>
-
-          {/* الإنجازات (Compact Rows) */}
-          <section>
-            <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 px-1">
-                <ThumbsUp size={16} className="text-green-600"/> إنجازات إيجابية
-            </h3>
-            <div className="bg-white rounded-2xl border border-slate-200 p-2 space-y-1.5 shadow-sm">
-              {displayPos.length > 0 ? displayPos.map((b: any, i: number) => (
-                <div key={i} className="flex justify-between items-center p-2.5 rounded-xl bg-green-50/50 border border-green-100">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
-                    <h4 className="font-bold text-slate-700 text-xs">{b.description}</h4>
-                  </div>
-                  <span className="text-[9px] text-slate-500 font-bold bg-white px-2 py-1 rounded-md border border-slate-100 shrink-0">{formatDate(b.date)}</span>
+          }
+        >
+          <div className="space-y-6">
+            {/* الإحصائيات المصغرة */}
+            <section className="grid grid-cols-2 gap-3 md:gap-4">
+              <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0"><Trophy size={18}/></div>
+                <div className="flex flex-col">
+                  <p className="text-slate-500 text-[10px] font-bold">إجمالي النقاط</p>
+                  <h3 className="text-xl font-black text-slate-800 leading-none">{s.totalPoints}</h3>
                 </div>
-              )) : <p className="text-center text-xs text-slate-400 py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">- لا يوجد حالياً -</p>}
-            </div>
-          </section>
-
-          {/* التنبيهات (Compact Rows) */}
-          <section>
-            <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 px-1">
-                <AlertTriangle size={16} className="text-red-500"/> تنبيهات وملاحظات
-            </h3>
-            <div className="bg-white rounded-2xl border border-slate-200 p-2 space-y-1.5 shadow-sm">
-              {neg.length > 0 ? neg.map((b: any, i: number) => (
-                <div key={i} className="flex justify-between items-center p-2.5 rounded-xl bg-red-50/50 border border-red-100">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
-                    <h4 className="font-bold text-slate-700 text-xs">{b.description}</h4>
-                  </div>
-                  <span className="text-[9px] text-slate-500 font-bold bg-white px-2 py-1 rounded-md border border-slate-100 shrink-0">{formatDate(b.date)}</span>
+              </div>
+              <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0"><Star size={18}/></div>
+                <div className="flex flex-col">
+                  <p className="text-slate-500 text-[10px] font-bold">أيام الانضباط</p>
+                  <h3 className="text-xl font-black text-slate-800 leading-none">{disciplineCount}</h3>
                 </div>
-              )) : <p className="text-center text-xs text-slate-400 py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">- لا توجد تنبيهات -</p>}
-            </div>
-          </section>
+              </div>
+            </section>
 
-          {/* سجل الدرجات (Compact Table) */}
-          <section>
-            <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 px-1">
-                <ClipboardList size={16} className="text-blue-500"/> سجل الدرجات
-            </h3>
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 font-bold text-[10px] uppercase border-b border-slate-200">
-                    <th className="py-3 px-4 text-right">الاختبار / الواجب</th>
-                    <th className="py-3 px-4 text-center w-24">الدرجة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {s.grades?.map((g: any, i: number) => (
-                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3 px-4 font-bold text-slate-700 text-xs">{g.category}</td>
-                      <td className="py-3 px-4 text-center"><span className="text-sm font-black text-[#000666]">{g.score}</span></td>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* 💉 الإنجازات (شريط تمرير داخلي إذا طالت القائمة) */}
+              <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col">
+                <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 px-1 shrink-0">
+                    <ThumbsUp size={16} className="text-green-600"/> إنجازات إيجابية
+                </h3>
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                  {displayPos.length > 0 ? displayPos.map((b: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-2.5 rounded-xl bg-green-50/50 border border-green-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2 h-2 rounded-full bg-green-500 shrink-0"></div>
+                        <h4 className="font-bold text-slate-700 text-xs">{b.description}</h4>
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-bold bg-white px-2 py-1 rounded-md border border-slate-100 shrink-0">{formatDate(b.date)}</span>
+                    </div>
+                  )) : <p className="text-center text-xs text-slate-400 py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">- لا يوجد حالياً -</p>}
+                </div>
+              </section>
+
+              {/* 💉 التنبيهات (شريط تمرير داخلي) */}
+              <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col">
+                <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 px-1 shrink-0">
+                    <AlertTriangle size={16} className="text-red-500"/> تنبيهات وملاحظات
+                </h3>
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                  {neg.length > 0 ? neg.map((b: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-2.5 rounded-xl bg-red-50/50 border border-red-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
+                        <h4 className="font-bold text-slate-700 text-xs">{b.description}</h4>
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-bold bg-white px-2 py-1 rounded-md border border-slate-100 shrink-0">{formatDate(b.date)}</span>
+                    </div>
+                  )) : <p className="text-center text-xs text-slate-400 py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">- لا توجد تنبيهات -</p>}
+                </div>
+              </section>
+            </div>
+
+            {/* سجل الدرجات (شريط تمرير داخلي) */}
+            <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col">
+              <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 px-1 shrink-0">
+                  <ClipboardList size={16} className="text-[#000666]"/> سجل الدرجات
+              </h3>
+              <div className="rounded-2xl border border-slate-200 overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar">
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-slate-50 z-10">
+                    <tr className="text-slate-500 font-bold text-[10px] uppercase border-b border-slate-200">
+                      <th className="py-3 px-4 text-right">الاختبار / الواجب</th>
+                      <th className="py-3 px-4 text-center w-24">الدرجة</th>
                     </tr>
-                  ))}
-                  {(!s.grades || s.grades.length === 0) && (
-                    <tr><td colSpan={2} className="py-6 text-center text-xs text-slate-400 font-bold">لم يتم رصد درجات</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {s.grades?.map((g: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-700 text-xs">{g.category}</td>
+                        <td className="py-3 px-4 text-center"><span className="text-sm font-black text-[#000666]">{g.score}</span></td>
+                      </tr>
+                    ))}
+                    {(!s.grades || s.grades.length === 0) && (
+                      <tr><td colSpan={2} className="py-6 text-center text-xs text-slate-400 font-bold">لم يتم رصد درجات</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
 
-          {/* زر التواصل المدمج في نهاية الصفحة */}
-          <button onClick={() => setIsMessageOpen(true)} className="w-full mt-4 bg-indigo-50 hover:bg-indigo-100 text-[#000666] border border-indigo-100 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-sm">
-            <MessageSquare size={18} /> تواصل مع معلم المادة
-          </button>
-        </div>
+            {/* زر التواصل المدمج */}
+            <button onClick={() => setIsMessageOpen(true)} className="w-full mt-4 bg-indigo-50 hover:bg-indigo-100 text-[#000666] border border-indigo-100 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-sm">
+              <MessageSquare size={18} /> تواصل مع معلم المادة
+            </button>
+          </div>
+        </GlassLayout>
 
         {/* نافذة المراسلة المنبثقة (Modal) */}
         {isMessageOpen && (
@@ -388,15 +424,11 @@ function App() {
     });
 
     return (
-      <div className="animate-in fade-in duration-500 pb-32">
-        {/* 💉 الهيدر الزجاجي للإشعارات */}
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-2xl shadow-sm border-b border-slate-200/60 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5">
-            <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                <Bell size={22} className="text-[#000666]" /> الإشعارات
-            </h1>
-        </header>
-
-        <div className="px-5 mt-6">
+      <div className="animate-in fade-in duration-500">
+        <GlassLayout
+          title="الإشعارات والتنبيهات"
+          icon={<Bell size={24} />}
+        >
           <div className="flex p-1 bg-slate-100 border border-slate-200 rounded-xl mb-6 shadow-sm">
             <button onClick={() => setActiveAlertTab('all')} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all duration-300 ${activeAlertTab === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>الكل</button>
             <button onClick={() => setActiveAlertTab('urgent')} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all duration-300 ${activeAlertTab === 'urgent' ? 'bg-red-50 text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>تنبيهات سلوكية</button>
@@ -428,7 +460,7 @@ function App() {
               </div>
             )}
           </div>
-        </div>
+        </GlassLayout>
       </div>
     );
   };
@@ -437,47 +469,45 @@ function App() {
   // 6. شاشة الملف الشخصي
   // =========================================================================
   const renderProfile = () => (
-    <div className="animate-in fade-in duration-500 pb-32">
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-2xl shadow-sm border-b border-slate-200/60 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5">
-            <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                <User size={22} className="text-[#000666]" /> حسابي
-            </h1>
-        </header>
+    <div className="animate-in fade-in duration-500">
+      <GlassLayout
+          title="حسابي"
+          icon={<User size={24} />}
+      >
+          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 text-center mb-6">
+              <div className="w-20 h-20 bg-indigo-50 border border-indigo-100 rounded-[1.5rem] mx-auto flex items-center justify-center text-[#000666] mb-4 shadow-inner">
+                  <User size={32} />
+              </div>
+              <h3 className="text-lg font-black text-slate-800 mb-1">ولي أمر الطالب</h3>
+              <p className="text-slate-500 text-sm font-bold bg-slate-50 py-2 px-4 rounded-xl border border-slate-200 inline-block">{allSubjects[0]?.name}</p>
+          </div>
 
-        <div className="px-5 mt-6 max-w-sm mx-auto">
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 text-center mb-6">
-                <div className="w-20 h-20 bg-indigo-50 border border-indigo-100 rounded-[1.5rem] mx-auto flex items-center justify-center text-[#000666] mb-4 shadow-inner">
-                    <User size={32} />
-                </div>
-                <h3 className="text-lg font-black text-slate-800 mb-1">ولي أمر الطالب</h3>
-                <p className="text-slate-500 text-sm font-bold bg-slate-50 py-2 px-4 rounded-xl border border-slate-200 inline-block">{allSubjects[0]?.name}</p>
-            </div>
+          <button onClick={handleLogout} className="w-full bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-sm">
+              <LogOut size={18} /> تسجيل الخروج
+          </button>
 
-            <button onClick={handleLogout} className="w-full bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-sm">
-                <LogOut size={18} /> تسجيل الخروج
-            </button>
-
-            <div className="mt-12 text-center opacity-60">
-                <p className="text-slate-400 text-[10px] font-bold mb-1">برمجة وتطوير</p>
-                <div className="flex items-center justify-center gap-1.5">
-                    <Code size={12} className="text-slate-600" />
-                    <span className="text-slate-600 text-[11px] font-black tracking-widest uppercase">ALZAABI MOHAMMAD</span>
-                </div>
-            </div>
-        </div>
+          <div className="mt-12 text-center opacity-60">
+              <p className="text-slate-400 text-[10px] font-bold mb-1">برمجة وتطوير</p>
+              <div className="flex items-center justify-center gap-1.5">
+                  <Code size={12} className="text-slate-600" />
+                  <span className="text-slate-600 text-[11px] font-black tracking-widest uppercase">ALZAABI MOHAMMAD</span>
+              </div>
+          </div>
+      </GlassLayout>
     </div>
   );
 
   return (
     <div className="min-h-[100dvh] bg-[#f8fafc] font-sans text-slate-800 relative overflow-hidden" dir="rtl">
-      {/* عرض المحتوى حسب التاب النشط */}
+      
+      {/* 💉 عرض المحتوى حسب التاب النشط - حاوية التمرير الرئيسية */}
       <div className="h-full overflow-y-auto custom-scrollbar">
         {currentTab === 'home' && (!selectedSubject ? renderDashboard() : renderSubjectDetails())}
         {currentTab === 'alerts' && renderNotifications()}
         {currentTab === 'profile' && renderProfile()}
       </div>
 
-      {/* 💉 شريط التنقل السفلي - يظهر دائماً في كل الشاشات لتسهيل التنقل */}
+      {/* 💉 شريط التنقل السفلي */}
       <nav className="fixed bottom-0 left-0 w-full z-[90] flex justify-around items-center px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 bg-white/90 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-[2rem] border-t border-slate-200 transition-colors duration-500">
         <button onClick={() => { setCurrentTab('home'); setSelectedSubject(null); }} className={`flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 ${currentTab === 'home' ? 'text-[#000666] scale-110 -translate-y-1' : 'text-slate-400 hover:text-slate-600'}`}>
           <LayoutGrid size={22} className={currentTab === 'home' ? 'fill-[#000666]/10' : ''} />
