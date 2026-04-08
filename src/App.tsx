@@ -1,15 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Loader2, LogOut, BookOpen, ChevronLeft, 
+  ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
-  School, Fingerprint, LayoutGrid, Bell, AlertTriangle, 
+  Star, School, Fingerprint, LayoutGrid, Bell, AlertTriangle, 
   ClipboardList, History
 } from 'lucide-react';
-import { GlassLayout } from './components/GlassLayout';
-import { SubjectDetails } from './components/SubjectDetails';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
 
+// =========================================================================
+// 💎 1. الغلاف الزجاجي الفاخر (مصمم للعمل داخلياً بدون ملفات خارجية)
+// =========================================================================
+const GlassLayout: React.FC<{
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  rightAction?: React.ReactNode;
+  showBack?: boolean;
+  onBack?: () => void;
+  children: React.ReactNode;
+}> = ({ title, subtitle, icon, rightAction, showBack, onBack, children }) => (
+  <div className="h-full w-full overflow-y-auto custom-scrollbar bg-[#f8fafc]" dir="rtl">
+    
+    {/* الهيدر الزجاجي الثابت (Sticky Header) */}
+    <header className="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl border-b border-slate-200/80 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.02)]">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          {showBack && (
+            <button onClick={onBack} className="p-2.5 bg-slate-50 hover:bg-slate-100 shadow-sm border border-slate-200 rounded-full text-[#000666] transition-all active:scale-95 shrink-0">
+              <ArrowLeft size={20}/>
+            </button>
+          )}
+          {icon && !showBack && (
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 shadow-inner flex items-center justify-center text-[#000666] shrink-0">
+              {icon}
+            </div>
+          )}
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-black text-xl text-[#000666] leading-tight truncate">{title}</h1>
+            {subtitle && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50/80 text-[#000666] border border-indigo-100/50 mt-1 inline-block w-fit truncate">
+                {subtitle}
+              </span>
+            )}
+          </div>
+        </div>
+        {rightAction && (
+          <div className="shrink-0 flex items-center gap-2 pl-2">
+            {rightAction}
+          </div>
+        )}
+      </div>
+    </header>
+
+    {/* المحتوى (ينزلق تحت الهيدر) */}
+    <main className="px-5 pt-6 pb-[120px]">
+      {children}
+    </main>
+  </div>
+);
+
+// =========================================================================
+// 💎 2. التطبيق الرئيسي (The Main App)
+// =========================================================================
 function App() {
   const [civilID, setCivilID] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -102,6 +155,7 @@ function App() {
     return new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
+  // ==================== شاشة تسجيل الدخول ====================
   if (!allSubjects.length && !showWelcomeScreen) {
     return (
       <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center font-sans overflow-hidden relative px-6" dir="rtl"
@@ -145,6 +199,7 @@ function App() {
     );
   }
 
+  // ==================== شاشة الترحيب المؤقتة ====================
   if (showWelcomeScreen && allSubjects.length > 0) {
     return (
       <div className="h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-br from-[#000666] to-[#1a237e] p-6 font-sans text-center relative overflow-hidden animate-in fade-in duration-500" dir="rtl">
@@ -164,6 +219,7 @@ function App() {
     );
   }
 
+  // ==================== 3. شاشة الداشبورد (الرئيسية) ====================
   const renderDashboard = () => (
     <div className="animate-in fade-in duration-500 h-full">
       <GlassLayout
@@ -171,7 +227,7 @@ function App() {
         subtitle={`الصف: ${allSubjects[0]?.className || '...'}`}
         icon={<User size={24} />}
         rightAction={
-          <button onClick={() => fetchStudentData(civilID, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#000666] active:scale-95 transition-all shadow-sm">
+          <button onClick={() => fetchStudentData(civilID, true)} disabled={isRefreshing} className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-[#000666] active:scale-95 transition-all shadow-sm">
             <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
           </button>
         }
@@ -182,10 +238,10 @@ function App() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {allSubjects.map((sub, idx) => (
-            <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 hover:border-[#000666]/30 cursor-pointer active:scale-[0.98] transition-all">
-              <div className="flex items-center justify-between">
+            <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 hover:border-[#000666]/30 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all">
+              <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-[#000666]">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-[#000666] shadow-inner">
                     <BookOpen size={20} />
                   </div>
                   <div>
@@ -199,14 +255,14 @@ function App() {
               </div>
               <div className="mt-5 flex items-center gap-3">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#1b6d24] rounded-full" style={{ width: `${Math.min(100, (sub.totalPoints || 50) + 40)}%` }}></div>
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (sub.totalPoints || 50) + 40)}%` }}></div>
                 </div>
-                <span className="text-[10px] font-black text-[#1b6d24]">{Math.min(100, (sub.totalPoints || 50) + 40)}%</span>
+                <span className="text-[10px] font-black text-emerald-600">{Math.min(100, (sub.totalPoints || 50) + 40)}%</span>
               </div>
             </div>
           ))}
           {allSubjects.length === 0 && (
-            <div className="col-span-full p-8 text-center text-slate-500 font-bold bg-slate-50 rounded-3xl border border-dashed border-slate-300">
+            <div className="col-span-full p-8 text-center text-slate-500 font-bold bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm">
                لا توجد مواد مضافة حالياً.
             </div>
           )}
@@ -215,6 +271,142 @@ function App() {
     </div>
   );
 
+  // ==================== 4. شاشة تفاصيل المادة (Compact Lists) ====================
+  const renderSubjectDetails = () => {
+    const s = selectedSubject;
+    const allPos = s.behaviors?.filter((b: any) => b.type === 'positive') || [];
+    const disciplineCount = allPos.filter((b: any) => b.description === 'هدوء وانضباط').length;
+    const displayPos = allPos.filter((b: any) => b.description !== 'هدوء وانضباط');
+    const neg = s.behaviors?.filter((b: any) => b.type === 'negative') || [];
+
+    return (
+      <div className="animate-in slide-in-from-left-8 fade-in duration-300 h-full">
+        <GlassLayout
+          title={s.subject}
+          showBack={true}
+          onBack={() => setSelectedSubject(null)}
+          rightAction={
+            <div className="flex items-center gap-1.5 bg-[#fff8e1] border border-[#ffecb3] px-3 py-1.5 rounded-xl shadow-sm">
+              <Trophy size={14} className="text-[#d97706]" />
+              <span className="text-sm font-black text-[#d97706]" dir="ltr">{s.totalPoints}</span>
+              <span className="text-[9px] font-bold text-[#d97706]/80">نقطة</span>
+            </div>
+          }
+        >
+          <div className="space-y-5">
+            
+            {/* الإحصائيات */}
+            <section className="grid grid-cols-2 gap-3">
+              <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100"><Trophy size={18}/></div>
+                <div className="flex flex-col">
+                  <p className="text-slate-500 text-[10px] font-bold">إجمالي النقاط</p>
+                  <h3 className="text-lg font-black text-[#000666] leading-none mt-0.5">{s.totalPoints}</h3>
+                </div>
+              </div>
+              <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0 border border-amber-100"><Star size={18}/></div>
+                <div className="flex flex-col">
+                  <p className="text-slate-500 text-[10px] font-bold">أيام الانضباط</p>
+                  <h3 className="text-lg font-black text-[#000666] leading-none mt-0.5">{disciplineCount}</h3>
+                </div>
+              </div>
+            </section>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* الإنجازات (مدمجة ومحكومة الطول مع تمرير داخلي) */}
+              <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col max-h-[300px]">
+                <h3 className="text-sm font-black text-[#000666] mb-3 flex items-center gap-2 px-1 shrink-0">
+                    <ThumbsUp size={18} className="text-emerald-500"/> إنجازات إيجابية
+                </h3>
+                <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
+                  {displayPos.length > 0 ? displayPos.map((b: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-3 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-slate-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></div>
+                        <h4 className="font-bold text-slate-700 text-xs">{b.description}</h4>
+                      </div>
+                      <span className="text-[9px] text-slate-400 font-bold bg-white px-2 py-1 rounded-md border border-slate-100 shrink-0">{formatDate(b.date)}</span>
+                    </div>
+                  )) : <p className="text-center text-xs text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">- لا يوجد حالياً -</p>}
+                </div>
+              </section>
+
+              {/* التنبيهات */}
+              <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col max-h-[300px]">
+                <h3 className="text-sm font-black text-[#000666] mb-3 flex items-center gap-2 px-1 shrink-0">
+                    <AlertTriangle size={18} className="text-rose-500"/> تنبيهات وملاحظات
+                </h3>
+                <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
+                  {neg.length > 0 ? neg.map((b: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-3 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-slate-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></div>
+                        <h4 className="font-bold text-slate-700 text-xs">{b.description}</h4>
+                      </div>
+                      <span className="text-[9px] text-slate-400 font-bold bg-white px-2 py-1 rounded-md border border-slate-100 shrink-0">{formatDate(b.date)}</span>
+                    </div>
+                  )) : <p className="text-center text-xs text-slate-400 py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">- لا توجد تنبيهات -</p>}
+                </div>
+              </section>
+            </div>
+
+            {/* سجل الدرجات */}
+            <section className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col max-h-[350px]">
+              <h3 className="text-sm font-black text-[#000666] mb-3 flex items-center gap-2 px-1 shrink-0">
+                  <ClipboardList size={18} className="text-[#000666]"/> سجل الدرجات
+              </h3>
+              <div className="rounded-2xl border border-slate-200 overflow-hidden overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50">
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-slate-100 z-10">
+                    <tr className="text-slate-500 font-black text-[10px] uppercase border-b border-slate-200">
+                      <th className="py-3 px-4 text-right">الاختبار / الواجب</th>
+                      <th className="py-3 px-4 text-center w-28">الدرجة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {s.grades?.map((g: any, i: number) => (
+                      <tr key={i} className="hover:bg-white transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-700 text-xs">{g.category}</td>
+                        <td className="py-3 px-4 text-center"><span className="text-sm font-black text-[#000666] bg-indigo-50 px-3 py-1 rounded-lg">{g.score}</span></td>
+                      </tr>
+                    ))}
+                    {(!s.grades || s.grades.length === 0) && (
+                      <tr><td colSpan={2} className="py-8 text-center text-xs text-slate-400 font-bold">لم يتم رصد درجات</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <button onClick={() => setIsMessageOpen(true)} className="w-full mt-2 bg-[#000666] hover:bg-indigo-900 text-white shadow-xl shadow-indigo-900/20 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 transition-all active:scale-95">
+              <MessageSquare size={18} /> تواصل مع معلم المادة
+            </button>
+          </div>
+        </GlassLayout>
+
+        {/* نافذة المراسلة المنبثقة (Modal) */}
+        {isMessageOpen && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
+            <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-black text-[#000666] flex items-center gap-2"><MessageSquare size={20}/> رسالة للمعلم</h3>
+                <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200"><X size={18}/></button>
+              </div>
+              <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب ملاحظاتك أو أعذار الغياب..." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-bold resize-none outline-none focus:border-[#000666] mb-4"></textarea>
+              <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#000666] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all shadow-lg">
+                {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // =========================================================================
+  // 5. شاشة الإشعارات
+  // =========================================================================
   const renderNotifications = () => {
     let alerts: any[] = [];
     allSubjects.forEach(sub => {
@@ -224,12 +416,9 @@ function App() {
 
     return (
       <div className="animate-in fade-in duration-500 h-full">
-        <GlassLayout
-          title="الإشعارات والتنبيهات"
-          icon={<Bell size={24} />}
-        >
-          <div className="flex p-1 bg-slate-100 border border-slate-200 rounded-xl mb-6 shadow-sm">
-            <button onClick={() => setActiveAlertTab('all')} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all duration-300 ${activeAlertTab === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>الكل</button>
+        <GlassLayout title="الإشعارات والتنبيهات" icon={<Bell size={24} />}>
+          <div className="flex p-1 bg-white border border-slate-200 rounded-xl mb-6 shadow-sm">
+            <button onClick={() => setActiveAlertTab('all')} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all duration-300 ${activeAlertTab === 'all' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>الكل</button>
             <button onClick={() => setActiveAlertTab('urgent')} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all duration-300 ${activeAlertTab === 'urgent' ? 'bg-red-50 text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>تنبيهات سلوكية</button>
           </div>
 
@@ -237,7 +426,7 @@ function App() {
             {alerts.filter(a => activeAlertTab === 'all' || a.kind === 'alert').map((item, idx) => (
               <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 transition-all hover:-translate-y-1 hover:shadow-md">
                 <div className="flex items-start gap-3">
-                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${item.kind === 'alert' ? 'bg-red-50 text-red-500' : 'bg-indigo-50 text-[#000666]'}`}>
+                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border ${item.kind === 'alert' ? 'bg-red-50 text-red-500 border-red-100' : 'bg-indigo-50 text-[#000666] border-indigo-100'}`}>
                     {item.kind === 'alert' ? <AlertTriangle size={20} /> : <ClipboardList size={20} />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -253,7 +442,7 @@ function App() {
             ))}
 
             {alerts.length === 0 && (
-              <div className="text-center bg-slate-50 border border-dashed border-slate-300 rounded-3xl p-8">
+              <div className="text-center bg-white border border-dashed border-slate-300 rounded-3xl p-8 shadow-sm">
                 <Bell size={32} className="mx-auto text-slate-300 mb-3" />
                 <p className="text-sm font-bold text-slate-500">لا توجد إشعارات حالياً</p>
               </div>
@@ -264,12 +453,12 @@ function App() {
     );
   };
 
+  // =========================================================================
+  // 6. شاشة الملف الشخصي
+  // =========================================================================
   const renderProfile = () => (
     <div className="animate-in fade-in duration-500 h-full">
-      <GlassLayout
-          title="حسابي"
-          icon={<User size={24} />}
-      >
+      <GlassLayout title="حسابي" icon={<User size={24} />}>
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 text-center mb-6">
               <div className="w-20 h-20 bg-indigo-50 border border-indigo-100 rounded-[1.5rem] mx-auto flex items-center justify-center text-[#000666] mb-4 shadow-inner">
                   <User size={32} />
@@ -294,18 +483,17 @@ function App() {
   );
 
   return (
-    // 💉 إزالة overflow-y-auto من الحاوية الخارجية ليتمكن الهيدر الزجاجي من التثبيت!
-    <div className="h-[100dvh] bg-[#f8fafc] font-sans text-slate-800 relative overflow-hidden transition-colors duration-500" dir="rtl">
+    <div className="h-[100dvh] w-full relative overflow-hidden bg-[#f8fafc] font-sans text-slate-800" dir="rtl">
       
-      {/* عرض المحتوى حسب التاب النشط - كل مكون يعالج تمريره بنفسه بفضل GlassLayout */}
-      <div className="h-full w-full">
-        {currentTab === 'home' && (!selectedSubject ? renderDashboard() : <SubjectDetails subjectData={selectedSubject} onBack={() => setSelectedSubject(null)} onOpenMessage={() => setIsMessageOpen(true)} formatDate={formatDate} />)}
+      {/* عرض المحتوى حسب التاب النشط - حاوية بملء الشاشة مع إخفاء التمرير الخارجي */}
+      <div className="absolute inset-0 z-0">
+        {currentTab === 'home' && (!selectedSubject ? renderDashboard() : renderSubjectDetails())}
         {currentTab === 'alerts' && renderNotifications()}
         {currentTab === 'profile' && renderProfile()}
       </div>
 
-      {/* 💉 شريط التنقل السفلي */}
-      <nav className="fixed bottom-0 left-0 w-full z-[90] flex justify-around items-center px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 bg-white/90 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-[2rem] border-t border-slate-200 transition-colors duration-500">
+      {/* 💉 شريط التنقل السفلي الملتصق بالحافة (Standard Bottom Nav) */}
+      <nav className="absolute bottom-0 left-0 right-0 z-[90] flex justify-around items-center px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 bg-white/90 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] border-t border-slate-200 transition-colors duration-500">
         <button onClick={() => { setCurrentTab('home'); setSelectedSubject(null); }} className={`flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 ${currentTab === 'home' ? 'text-[#000666] scale-110 -translate-y-1' : 'text-slate-400 hover:text-slate-600'}`}>
           <LayoutGrid size={22} className={currentTab === 'home' ? 'fill-[#000666]/10' : ''} />
           <span className="text-[9px] font-black mt-1">الرئيسية</span>
@@ -322,22 +510,6 @@ function App() {
           <span className="text-[9px] font-black mt-1">حسابي</span>
         </button>
       </nav>
-
-      {/* نافذة المراسلة المنبثقة */}
-      {isMessageOpen && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
-          <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-black text-[#000666] flex items-center gap-2"><MessageSquare size={20}/> رسالة للمعلم</h3>
-              <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200"><X size={18}/></button>
-            </div>
-            <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب ملاحظاتك أو أعذار الغياب..." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-bold resize-none outline-none focus:border-[#000666] mb-4"></textarea>
-            <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#000666] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all shadow-lg">
-              {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );
