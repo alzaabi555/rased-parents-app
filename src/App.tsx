@@ -3,7 +3,7 @@ import {
   ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
   Star, School, Fingerprint, LayoutGrid, Bell, AlertTriangle, 
-  ClipboardList, Calendar, History
+  ClipboardList, History
 } from 'lucide-react';
 
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec";
@@ -41,6 +41,7 @@ function App() {
 
       if (result.status === 'success') {
         const newSubjects = result.subjects;
+        
         localStorage.setItem(`rased_data_${id.trim()}`, JSON.stringify(newSubjects));
         setAllSubjects(newSubjects);
         localStorage.setItem('rased_parent_civil_id', id.trim());
