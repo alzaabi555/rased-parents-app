@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
@@ -302,7 +302,7 @@ function App() {
         subtitle={`الصف: ${allSubjects[0]?.className || '...'}`}
         icon={<User size={24} />}
         rightAction={
-          <button onClick={() => fetchStudentData(civilID, true)} disabled={isRefreshing} className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-[#000666] active:scale-95 transition-all shadow-sm">
+          <button onClick={() => fetchStudentData(civilID, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#000666] active:scale-95 transition-all shadow-sm">
             <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
           </button>
         }
@@ -313,7 +313,7 @@ function App() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {allSubjects.map((sub, idx) => (
-            <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 hover:border-[#000666]/30 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all">
+            <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 hover:border-[#000666]/30 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-[#000666] shadow-inner">
@@ -330,14 +330,14 @@ function App() {
               </div>
               <div className="mt-5 flex items-center gap-3">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (sub.totalPoints || 50) + 40)}%` }}></div>
+                  <div className="h-full bg-[#1b6d24] rounded-full" style={{ width: `${Math.min(100, (sub.totalPoints || 50) + 40)}%` }}></div>
                 </div>
-                <span className="text-[10px] font-black text-emerald-600">{Math.min(100, (sub.totalPoints || 50) + 40)}%</span>
+                <span className="text-[10px] font-black text-[#1b6d24]">{Math.min(100, (sub.totalPoints || 50) + 40)}%</span>
               </div>
             </div>
           ))}
           {allSubjects.length === 0 && (
-            <div className="col-span-full p-8 text-center text-slate-500 font-bold bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm">
+            <div className="col-span-full p-8 text-center text-slate-500 font-bold bg-slate-50 rounded-3xl border border-dashed border-slate-300 shadow-sm">
                لا توجد مواد مضافة حالياً.
             </div>
           )}
@@ -454,6 +454,22 @@ function App() {
             </button>
           </div>
         </GlassLayout>
+
+        {/* نافذة المراسلة المنبثقة (Modal) */}
+        {isMessageOpen && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
+            <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-black text-[#000666] flex items-center gap-2"><MessageSquare size={20}/> رسالة للمعلم</h3>
+                <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200"><X size={18}/></button>
+              </div>
+              <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب ملاحظاتك أو أعذار الغياب..." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-bold resize-none outline-none focus:border-[#000666] mb-4"></textarea>
+              <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#000666] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all shadow-lg">
+                {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -539,14 +555,14 @@ function App() {
   return (
     <div className="h-[100dvh] w-full relative overflow-hidden bg-[#f8fafc] font-sans text-slate-800" dir="rtl">
       
-      {/* عرض المحتوى حسب التاب النشط - حاوية بملء الشاشة مع إخفاء التمرير الخارجي */}
+      {/* عرض المحتوى حسب التاب النشط */}
       <div className="absolute inset-0 z-0">
         {currentTab === 'home' && (!selectedSubject ? renderDashboard() : renderSubjectDetails())}
         {currentTab === 'alerts' && renderNotifications()}
         {currentTab === 'profile' && renderProfile()}
       </div>
 
-      {/* 💉 شريط التنقل السفلي الملتصق بالحافة (Standard Bottom Nav) */}
+      {/* شريط التنقل السفلي */}
       <nav className="absolute bottom-0 left-0 right-0 z-[90] flex justify-around items-center px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 bg-white/90 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] border-t border-slate-200 transition-colors duration-500">
         <button onClick={() => { setCurrentTab('home'); setSelectedSubject(null); }} className={`flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 ${currentTab === 'home' ? 'text-[#000666] scale-110 -translate-y-1' : 'text-slate-400 hover:text-slate-600'}`}>
           <LayoutGrid size={22} className={currentTab === 'home' ? 'fill-[#000666]/10' : ''} />
@@ -564,22 +580,6 @@ function App() {
           <span className="text-[9px] font-black mt-1">حسابي</span>
         </button>
       </nav>
-
-      {/* نافذة المراسلة المنبثقة */}
-      {isMessageOpen && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
-          <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-8 sm:zoom-in-95">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-black text-[#000666] flex items-center gap-2"><MessageSquare size={20}/> رسالة للمعلم</h3>
-              <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200"><X size={18}/></button>
-            </div>
-            <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب ملاحظاتك أو أعذار الغياب..." className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-bold resize-none outline-none focus:border-[#000666] mb-4"></textarea>
-            <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#000666] text-white py-4 rounded-xl font-black flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all shadow-lg">
-              {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );
