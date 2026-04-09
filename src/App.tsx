@@ -14,7 +14,7 @@ const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKPPsQsM_dI
 const ROYAL_BLUE = "#002366"; 
 
 // =========================================================================
-// 💎 1. الغلاف الزجاجي الملكي (Royal Glass Layout)
+// 💎 1. الغلاف الزجاجي الملكي
 // =========================================================================
 const GlassLayout: React.FC<{
   title: string;
@@ -27,7 +27,6 @@ const GlassLayout: React.FC<{
 }> = ({ title, subtitle, icon, rightAction, showBack, onBack, children }) => (
   <div className="h-full w-full overflow-y-auto custom-scrollbar bg-[#f0f4f8]" dir="rtl">
     
-    {/* الهيدر الزجاجي الملكي الثابت */}
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-2xl border-b border-indigo-100 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5 transition-all shadow-[0_4px_20px_rgba(0,35,102,0.05)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
@@ -58,7 +57,6 @@ const GlassLayout: React.FC<{
       </div>
     </header>
 
-    {/* المحتوى */}
     <main className="px-5 pt-6 pb-[130px]">
       {children}
     </main>
@@ -191,7 +189,7 @@ function App() {
   const [civilID, setCivilID] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(''); // ⚠️ المترجم غضب لأننا لم نستخدم هذا في واجهة المستخدم، تمت معالجته!
   const [allSubjects, setAllSubjects] = useState<any[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
   
@@ -301,6 +299,7 @@ function App() {
 
   const formatDate = (dateString: string) => { if (!dateString) return ''; return new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' }); };
 
+  // ================= شاشة تسجيل الدخول =================
   if (!allSubjects.length && !showWelcomeScreen) {
     return (
       <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center font-sans overflow-hidden relative px-6" dir="rtl"
@@ -322,6 +321,8 @@ function App() {
                   <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-indigo-300 group-focus-within:text-white z-10"><Fingerprint className="w-6 h-6" /></div>
                   <input type="number" value={civilID} onChange={(e) => setCivilID(e.target.value)} className="block w-full pr-14 pl-4 py-4 bg-white/10 border border-white/20 rounded-2xl focus:ring-4 focus:ring-white/20 text-white font-black text-lg outline-none text-left placeholder:text-indigo-200/50" placeholder="أدخل الرقم المدني" required />
                 </div>
+                {/* 💉 رسالة الخطأ عولجت هنا ليتم استخدام المتغير error */}
+                {error && <p className="text-rose-300 text-xs font-bold text-center mt-2 animate-in fade-in">{error}</p>}
               </div>
               <button type="submit" disabled={!civilID || isLoading} className="w-full bg-white text-[#002366] py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
                 {isLoading ? <Loader2 className="animate-spin" /> : <><span>دخول آمن</span><ArrowLeft className="w-5 h-5" /></>}
