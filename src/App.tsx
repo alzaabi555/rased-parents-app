@@ -3,7 +3,7 @@ import {
   ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
   Star, School, Fingerprint, LayoutGrid, Bell, AlertTriangle, 
-  ClipboardList, History
+  ClipboardList, History, Users, Trash2 // 💉 تم إضافة أيقونات المحفظة هنا
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
@@ -25,10 +25,7 @@ const GlassLayout: React.FC<{
   onBack?: () => void;
   children: React.ReactNode;
 }> = ({ title, subtitle, icon, rightAction, showBack, onBack, children }) => (
-  // 💉 إزالة اللون المصمت لكي يظهر تأثير الخلفية، وتفعيل التمرير
   <div className="h-full w-full overflow-y-auto custom-scrollbar bg-transparent" dir="rtl">
-    
-    {/* 💉 الهيدر الزجاجي (شفافية 60% مع تضبيب قوي ليظهر المحتوى من تحته) */}
     <header className="sticky top-0 z-40 bg-white/60 backdrop-blur-xl border-b border-white/60 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5 transition-all shadow-[0_4px_30px_rgba(0,35,102,0.04)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
@@ -203,6 +200,9 @@ function App() {
   const [messageText, setMessageText] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
+  // 💉 حالة جديدة لحفظ محفظة الأبناء
+  const [savedProfiles, setSavedProfiles] = useState<{id: string, name: string}[]>([]);
+
   useEffect(() => {
     const requestPermissions = async () => {
       if (Capacitor.isNativePlatform()) {
@@ -212,6 +212,10 @@ function App() {
       }
     };
     requestPermissions();
+
+    // 💉 تحميل محفظة الأبناء عند فتح التطبيق
+    const loadedProfiles = JSON.parse(localStorage.getItem('rased_saved_profiles') || '[]');
+    setSavedProfiles(loadedProfiles);
   }, []);
 
   const triggerDeviceNotification = async (studentName: string, newGradesCount: number, newAlertsCount: number) => {
@@ -237,12 +241,19 @@ function App() {
     }
 
     try {
-      const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${id.trim()}`);
-      const result = await response.json();
+      // 💉 كاسر الكاش لتجنب تأخر البيانات
+      const cacheBuster = new Date().getTime();
+      const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${id.trim()}&t=${cacheBuster}`, {
+          method: 'GET',
+          redirect: 'follow'
+      });
+      const textData = await response.text();
+      const result = JSON.parse(textData);
 
       if (result.status === 'success') {
         const newSubjects = result.subjects;
         const cachedDataStr = localStorage.getItem(`rased_data_${id.trim()}`);
+        const studentName = newSubjects[0]?.name || 'طالب';
         
         if (cachedDataStr) {
             const oldSubjects = JSON.parse(cachedDataStr);
@@ -256,15 +267,25 @@ function App() {
                     if (newB > oldB) newAlerts += (newB - oldB);
                 }
             });
-            if (newGrades > 0 || newAlerts > 0) triggerDeviceNotification(newSubjects[0]?.name, newGrades, newAlerts);
+            if (newGrades > 0 || newAlerts > 0) triggerDeviceNotification(studentName, newGrades, newAlerts);
+        }
+
+        // 💉 تحديث محفظة الأبناء
+        const currentProfiles = JSON.parse(localStorage.getItem('rased_saved_profiles') || '[]');
+        if (!currentProfiles.find((p: any) => p.id === id.trim())) {
+            const updatedProfiles = [...currentProfiles, { id: id.trim(), name: studentName }];
+            localStorage.setItem('rased_saved_profiles', JSON.stringify(updatedProfiles));
+            setSavedProfiles(updatedProfiles);
         }
 
         localStorage.setItem(`rased_data_${id.trim()}`, JSON.stringify(newSubjects));
         setAllSubjects(newSubjects);
         localStorage.setItem('rased_parent_civil_id', id.trim());
+        setCivilID(id.trim()); // ضمان تحديث الحقل
+        
         if (!isManualRefresh && !isSilent) { setShowWelcomeScreen(true); setTimeout(() => setShowWelcomeScreen(false), 2500); }
       } else {
-        if (!isSilent) setError('لم يتم العثور على بيانات.');
+        if (!isSilent) setError('لم يتم العثور على بيانات أو تأكد من صحة الرقم المدني.');
       }
     } catch (err) {
       if (!isSilent) setError('خطأ في الاتصال بالسحابة.');
@@ -284,7 +305,23 @@ function App() {
   }, []);
 
   const handleLogin = (e: React.FormEvent) => { e.preventDefault(); fetchStudentData(civilID); };
-  const handleLogout = () => { localStorage.removeItem('rased_parent_civil_id'); setAllSubjects([]); setSelectedSubject(null); setCivilID(''); setCurrentTab('home'); };
+  
+  const handleLogout = () => { 
+    localStorage.removeItem('rased_parent_civil_id'); 
+    setAllSubjects([]); 
+    setSelectedSubject(null); 
+    setCivilID(''); 
+    setCurrentTab('home'); 
+  };
+
+  // 💉 دالة لحذف ابن من المحفظة
+  const removeSavedProfile = (idToRemove: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = savedProfiles.filter(p => p.id !== idToRemove);
+    setSavedProfiles(updated);
+    localStorage.setItem('rased_saved_profiles', JSON.stringify(updated));
+    if (civilID === idToRemove) setCivilID('');
+  };
 
   const handleSendMessage = async () => {
     if (!messageText.trim()) return;
@@ -300,34 +337,79 @@ function App() {
 
   const formatDate = (dateString: string) => { if (!dateString) return ''; return new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' }); };
 
-  // ================= شاشة تسجيل الدخول =================
+  // ================= شاشة تسجيل الدخول المحدثة بالمحفظة =================
   if (!allSubjects.length && !showWelcomeScreen) {
     return (
       <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center font-sans overflow-hidden relative px-6" dir="rtl"
         style={{ backgroundColor: ROYAL_BLUE, backgroundImage: `radial-gradient(at 0% 0%, #1e40af 0px, transparent 50%), radial-gradient(at 100% 0%, #002366 0px, transparent 50%), radial-gradient(at 100% 100%, #1e3a8a 0px, transparent 50%), radial-gradient(at 0% 100%, #002366 0px, transparent 50%)` }}>
-        <main className="w-full max-w-md relative z-10 flex flex-col items-center">
-          <div className="text-center mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        
+        <main className="w-full max-w-md relative z-10 flex flex-col items-center max-h-screen overflow-y-auto custom-scrollbar py-10">
+          
+          <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 shrink-0">
             <div className="inline-flex items-center justify-center p-5 rounded-2xl bg-white/10 backdrop-blur-md mb-6 shadow-2xl border border-white/10">
               <School className="w-12 h-12 text-white" />
             </div>
             <h1 className="text-5xl font-black text-white tracking-tight mb-2">راصد</h1>
             <p className="text-indigo-200 font-bold tracking-wide text-sm">بوابة ولي الأمر الملكية</p>
           </div>
-          <div className="w-full bg-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 shadow-2xl border border-white/20">
-            <h2 className="text-2xl font-black text-white mb-6 text-center">تسجيل الدخول</h2>
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-white/90 px-1 text-right">الرقم المدني للطالب</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-indigo-300 group-focus-within:text-white z-10"><Fingerprint className="w-6 h-6" /></div>
-                  <input type="number" value={civilID} onChange={(e) => setCivilID(e.target.value)} className="block w-full pr-14 pl-4 py-4 bg-white/10 border border-white/20 rounded-2xl focus:ring-4 focus:ring-white/20 text-white font-black text-lg outline-none text-left placeholder:text-indigo-200/50" placeholder="أدخل الرقم المدني" required />
+
+          <div className="w-full flex flex-col gap-6">
+            
+            {/* 💉 قسم محفظة الأبناء (يظهر فقط إذا كان هناك أبناء محفوظون) */}
+            {savedProfiles.length > 0 && (
+              <div className="w-full bg-white/10 backdrop-blur-xl rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-500">
+                <h2 className="text-sm font-black text-white mb-4 text-center flex items-center justify-center gap-2">
+                  <Users size={16} className="text-indigo-300"/> الدخول السريع للأبناء
+                </h2>
+                <div className="grid gap-3 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
+                  {savedProfiles.map(profile => (
+                    <div 
+                      key={profile.id} 
+                      onClick={() => fetchStudentData(profile.id)} 
+                      className="bg-white/5 hover:bg-white/20 border border-white/10 p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all active:scale-95 group shadow-sm"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-[#002366]/50 flex items-center justify-center text-indigo-100 border border-white/10 shadow-inner group-hover:scale-110 transition-transform">
+                          <User size={18} />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white text-sm font-black line-clamp-1">{profile.name}</p>
+                          <p className="text-indigo-200 text-[10px] font-mono mt-0.5">{profile.id}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={(e) => removeSavedProfile(profile.id, e)} 
+                        className="p-2.5 text-white/30 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+                        title="حذف الحساب"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                {error && <p className="text-rose-300 text-xs font-bold text-center mt-2 animate-in fade-in">{error}</p>}
               </div>
-              <button type="submit" disabled={!civilID || isLoading} className="w-full bg-white text-[#002366] py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
-                {isLoading ? <Loader2 className="animate-spin" /> : <><span>دخول آمن</span><ArrowLeft className="w-5 h-5" /></>}
-              </button>
-            </form>
+            )}
+
+            {/* 💉 قسم الدخول اليدوي الجديد */}
+            <div className="w-full bg-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white/20">
+              <h2 className="text-xl font-black text-white mb-6 text-center">
+                {savedProfiles.length > 0 ? 'إضافة ابن جديد' : 'تسجيل الدخول'}
+              </h2>
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-white/90 px-1 text-right">الرقم المدني للطالب</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-indigo-300 group-focus-within:text-white z-10"><Fingerprint className="w-6 h-6" /></div>
+                    <input type="number" value={civilID} onChange={(e) => setCivilID(e.target.value)} className="block w-full pr-14 pl-4 py-4 bg-white/10 border border-white/20 rounded-2xl focus:ring-4 focus:ring-white/20 text-white font-black text-lg outline-none text-left placeholder:text-indigo-200/50" placeholder="أدخل الرقم المدني" required />
+                  </div>
+                  {error && <p className="text-rose-300 text-xs font-bold text-center mt-2 animate-in fade-in">{error}</p>}
+                </div>
+                <button type="submit" disabled={!civilID || isLoading} className="w-full bg-white text-[#002366] py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
+                  {isLoading ? <Loader2 className="animate-spin" /> : <><span>دخول آمن</span><ArrowLeft className="w-5 h-5" /></>}
+                </button>
+              </form>
+            </div>
+
           </div>
         </main>
       </div>
