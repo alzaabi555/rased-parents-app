@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
-  Star, School, Fingerprint, LayoutGrid, Bell, AlertTriangle, 
+  Star, School, LayoutGrid, Bell, AlertTriangle, 
   ClipboardList, History, Users, Trash2, Key
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
