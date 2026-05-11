@@ -3,7 +3,7 @@ import {
   ArrowLeft, Loader2, LogOut, Trophy, ThumbsUp, BookOpen, ChevronLeft, 
   MessageSquare, Send, X, Code, User, RefreshCw, HeartHandshake,
   Star, School, Fingerprint, LayoutGrid, Bell, AlertTriangle, 
-  ClipboardList, History, Users, Trash2 // 💉 تم إضافة أيقونات المحفظة هنا
+  ClipboardList, History, Users, Trash2, Key
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
@@ -185,7 +185,7 @@ const SubjectDetails: React.FC<{
 // 💎 3. التطبيق الرئيسي (The Main App)
 // =========================================================================
 function App() {
-  const [civilID, setCivilID] = useState('');
+  const [secretCode, setSecretCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -200,7 +200,6 @@ function App() {
   const [messageText, setMessageText] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
-  // 💉 حالة جديدة لحفظ محفظة الأبناء
   const [savedProfiles, setSavedProfiles] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
@@ -213,15 +212,15 @@ function App() {
     };
     requestPermissions();
 
-    // 💉 تحميل محفظة الأبناء عند فتح التطبيق
     const loadedProfiles = JSON.parse(localStorage.getItem('rased_saved_profiles') || '[]');
     setSavedProfiles(loadedProfiles);
   }, []);
 
-  const triggerDeviceNotification = async (studentName: string, newGradesCount: number, newAlertsCount: number) => {
-    let msg = `تحديثات جديدة للطالب ${studentName}: `;
+  const triggerDeviceNotification = async (studentName: string, newGradesCount: number, newAlertsCount: number, newRepliesCount: number) => {
+    let msg = `تحديثات للطالب ${studentName}: `;
     if (newGradesCount > 0) msg += `(${newGradesCount}) درجات. `;
-    if (newAlertsCount > 0) msg += `(${newAlertsCount}) تنبيهات.`;
+    if (newAlertsCount > 0) msg += `(${newAlertsCount}) تنبيهات. `;
+    if (newRepliesCount > 0) msg += `(${newRepliesCount}) رسائل.`;
 
     if (Capacitor.isNativePlatform()) {
       await LocalNotifications.schedule({
@@ -233,7 +232,10 @@ function App() {
   };
 
   const fetchStudentData = async (id: string, isManualRefresh = false, isSilent = false) => {
-    if (!id.trim()) return setError('الرجاء إدخال الرقم المدني للطالب.');
+    if (!id.trim()) return setError('الرجاء إدخال الكود السري للطالب.');
+    
+    const sanitizedId = id.trim().toUpperCase();
+
     if (!isSilent) {
         if (isManualRefresh) setIsRefreshing(true);
         else setIsLoading(true);
@@ -241,9 +243,8 @@ function App() {
     }
 
     try {
-      // 💉 كاسر الكاش لتجنب تأخر البيانات
       const cacheBuster = new Date().getTime();
-      const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${id.trim()}&t=${cacheBuster}`, {
+      const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${sanitizedId}&t=${cacheBuster}`, {
           method: 'GET',
           redirect: 'follow'
       });
@@ -252,12 +253,12 @@ function App() {
 
       if (result.status === 'success') {
         const newSubjects = result.subjects;
-        const cachedDataStr = localStorage.getItem(`rased_data_${id.trim()}`);
+        const cachedDataStr = localStorage.getItem(`rased_data_${sanitizedId}`);
         const studentName = newSubjects[0]?.name || 'طالب';
         
         if (cachedDataStr) {
             const oldSubjects = JSON.parse(cachedDataStr);
-            let newGrades = 0, newAlerts = 0;
+            let newGrades = 0, newAlerts = 0, newReplies = 0;
             newSubjects.forEach((newSub: any, idx: number) => {
                 const oldSub = oldSubjects[idx];
                 if (oldSub) {
@@ -265,27 +266,35 @@ function App() {
                     if (newG > oldG) newGrades += (newG - oldG);
                     const oldB = oldSub.behaviors?.length || 0, newB = newSub.behaviors?.length || 0;
                     if (newB > oldB) newAlerts += (newB - oldB);
+                    const oldR = oldSub.teacherReplies?.length || 0, newR = newSub.teacherReplies?.length || 0;
+                    if (newR > oldR) newReplies += (newR - oldR);
                 }
             });
-            if (newGrades > 0 || newAlerts > 0) triggerDeviceNotification(studentName, newGrades, newAlerts);
+            if (newGrades > 0 || newAlerts > 0 || newReplies > 0) triggerDeviceNotification(studentName, newGrades, newAlerts, newReplies);
         }
 
-        // 💉 تحديث محفظة الأبناء
         const currentProfiles = JSON.parse(localStorage.getItem('rased_saved_profiles') || '[]');
-        if (!currentProfiles.find((p: any) => p.id === id.trim())) {
-            const updatedProfiles = [...currentProfiles, { id: id.trim(), name: studentName }];
+        if (!currentProfiles.find((p: any) => p.id === sanitizedId)) {
+            const updatedProfiles = [...currentProfiles, { id: sanitizedId, name: studentName }];
             localStorage.setItem('rased_saved_profiles', JSON.stringify(updatedProfiles));
             setSavedProfiles(updatedProfiles);
         }
 
-        localStorage.setItem(`rased_data_${id.trim()}`, JSON.stringify(newSubjects));
+        localStorage.setItem(`rased_data_${sanitizedId}`, JSON.stringify(newSubjects));
         setAllSubjects(newSubjects);
-        localStorage.setItem('rased_parent_civil_id', id.trim());
-        setCivilID(id.trim()); // ضمان تحديث الحقل
+        
+        // تحديث المادة المحددة (إن كانت مفتوحة) لرؤية الرسائل الجديدة فوراً
+        if (selectedSubject) {
+            const updatedSelected = newSubjects.find((s: any) => s.subject === selectedSubject.subject);
+            if (updatedSelected) setSelectedSubject(updatedSelected);
+        }
+
+        localStorage.setItem('rased_parent_secret_code', sanitizedId);
+        setSecretCode(sanitizedId); 
         
         if (!isManualRefresh && !isSilent) { setShowWelcomeScreen(true); setTimeout(() => setShowWelcomeScreen(false), 2500); }
       } else {
-        if (!isSilent) setError('لم يتم العثور على بيانات أو تأكد من صحة الرقم المدني.');
+        if (!isSilent) setError('لم يتم العثور على بيانات، تأكد من صحة الكود السري (مثال: RSD-A7X9).');
       }
     } catch (err) {
       if (!isSilent) setError('خطأ في الاتصال بالسحابة.');
@@ -295,42 +304,46 @@ function App() {
   };
 
   useEffect(() => {
-    const savedID = localStorage.getItem('rased_parent_civil_id');
+    const savedID = localStorage.getItem('rased_parent_secret_code');
     if (savedID) {
-      setCivilID(savedID);
+      setSecretCode(savedID);
       fetchStudentData(savedID);
       const silentInterval = setInterval(() => fetchStudentData(savedID, false, true), 60000); 
       return () => clearInterval(silentInterval);
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => { e.preventDefault(); fetchStudentData(civilID); };
+  const handleLogin = (e: React.FormEvent) => { e.preventDefault(); fetchStudentData(secretCode); };
   
   const handleLogout = () => { 
-    localStorage.removeItem('rased_parent_civil_id'); 
+    localStorage.removeItem('rased_parent_secret_code'); 
     setAllSubjects([]); 
     setSelectedSubject(null); 
-    setCivilID(''); 
+    setSecretCode(''); 
     setCurrentTab('home'); 
   };
 
-  // 💉 دالة لحذف ابن من المحفظة
   const removeSavedProfile = (idToRemove: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = savedProfiles.filter(p => p.id !== idToRemove);
     setSavedProfiles(updated);
     localStorage.setItem('rased_saved_profiles', JSON.stringify(updated));
-    if (civilID === idToRemove) setCivilID('');
+    if (secretCode === idToRemove) setSecretCode('');
   };
 
   const handleSendMessage = async () => {
     if (!messageText.trim()) return;
     setIsSendingMsg(true);
-    const payload = { action: "sendMessage", civilID, studentName: selectedSubject.name, schoolName: selectedSubject.schoolName || "غير محدد", subject: selectedSubject.subject, message: messageText.trim() };
+    const payload = { action: "sendMessage", civilID: secretCode, rasedId: secretCode, studentName: selectedSubject.name, schoolName: selectedSubject.schoolName || "غير محدد", subject: selectedSubject.subject, message: messageText.trim() };
     try {
       const response = await fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
       const result = await response.json();
-      if (result.status === 'success') { alert('تم الإرسال بنجاح! ✅'); setMessageText(''); setIsMessageOpen(false); }
+      if (result.status === 'success') { 
+        alert('تم الإرسال بنجاح! ✅'); 
+        setMessageText(''); 
+        // نقوم بتحديث البيانات صامتاً لكي تنعكس إن كان هناك جديد
+        fetchStudentData(secretCode, false, true); 
+      }
     } catch (error) { alert('خطأ في الإرسال.'); } 
     finally { setIsSendingMsg(false); }
   };
@@ -355,7 +368,6 @@ function App() {
 
           <div className="w-full flex flex-col gap-6">
             
-            {/* 💉 قسم محفظة الأبناء (يظهر فقط إذا كان هناك أبناء محفوظون) */}
             {savedProfiles.length > 0 && (
               <div className="w-full bg-white/10 backdrop-blur-xl rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-500">
                 <h2 className="text-sm font-black text-white mb-4 text-center flex items-center justify-center gap-2">
@@ -374,7 +386,7 @@ function App() {
                         </div>
                         <div className="text-right">
                           <p className="text-white text-sm font-black line-clamp-1">{profile.name}</p>
-                          <p className="text-indigo-200 text-[10px] font-mono mt-0.5">{profile.id}</p>
+                          <p className="text-indigo-200 text-[10px] font-mono mt-0.5" dir="ltr">{profile.id}</p>
                         </div>
                       </div>
                       <button 
@@ -390,21 +402,28 @@ function App() {
               </div>
             )}
 
-            {/* 💉 قسم الدخول اليدوي الجديد */}
             <div className="w-full bg-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white/20">
               <h2 className="text-xl font-black text-white mb-6 text-center">
                 {savedProfiles.length > 0 ? 'إضافة ابن جديد' : 'تسجيل الدخول'}
               </h2>
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-white/90 px-1 text-right">الرقم المدني للطالب</label>
+                  <label className="block text-xs font-bold text-white/90 px-1 text-right">كود راصد السري (المستلم من المدرسة)</label>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-indigo-300 group-focus-within:text-white z-10"><Fingerprint className="w-6 h-6" /></div>
-                    <input type="number" value={civilID} onChange={(e) => setCivilID(e.target.value)} className="block w-full pr-14 pl-4 py-4 bg-white/10 border border-white/20 rounded-2xl focus:ring-4 focus:ring-white/20 text-white font-black text-lg outline-none text-left placeholder:text-indigo-200/50" placeholder="أدخل الرقم المدني" required />
+                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-indigo-300 group-focus-within:text-white z-10"><Key className="w-6 h-6" /></div>
+                    <input 
+                      type="text" 
+                      value={secretCode} 
+                      onChange={(e) => setSecretCode(e.target.value.toUpperCase())} 
+                      className="block w-full pr-14 pl-4 py-4 bg-white/10 border border-white/20 rounded-2xl focus:ring-4 focus:ring-white/20 text-white font-black text-lg outline-none text-left placeholder:text-indigo-200/50 uppercase" 
+                      placeholder="مثال: RSD-A7X9" 
+                      required 
+                      dir="ltr"
+                    />
                   </div>
                   {error && <p className="text-rose-300 text-xs font-bold text-center mt-2 animate-in fade-in">{error}</p>}
                 </div>
-                <button type="submit" disabled={!civilID || isLoading} className="w-full bg-white text-[#002366] py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
+                <button type="submit" disabled={!secretCode || isLoading} className="w-full bg-white text-[#002366] py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
                   {isLoading ? <Loader2 className="animate-spin" /> : <><span>دخول آمن</span><ArrowLeft className="w-5 h-5" /></>}
                 </button>
               </form>
@@ -433,7 +452,7 @@ function App() {
         subtitle={`الصف: ${allSubjects[0]?.className || '...'}`}
         icon={<User size={24} />}
         rightAction={
-          <button onClick={() => fetchStudentData(civilID, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-white/50 border border-indigo-100 text-[#002366] active:scale-95 shadow-sm hover:bg-white transition-colors">
+          <button onClick={() => fetchStudentData(secretCode, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-white/50 border border-indigo-100 text-[#002366] active:scale-95 shadow-sm hover:bg-white transition-colors">
             <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
           </button>
         }
@@ -472,7 +491,10 @@ function App() {
     allSubjects.forEach(sub => {
       sub.behaviors?.filter((b:any)=> b.type === 'negative').forEach((b:any) => alerts.push({...b, subject: sub.subject, kind: 'alert'}));
       sub.grades?.forEach((g:any) => alerts.push({...g, subject: sub.subject, kind: 'grade'}));
+      sub.teacherReplies?.forEach((r:any) => alerts.push({ ...r, description: `رد المعلم: ${r.message}`, subject: sub.subject, kind: 'reply' }));
     });
+    alerts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     return (
       <div className="animate-in fade-in duration-500 h-full">
         <GlassLayout title="الإشعارات" icon={<Bell size={24} />}>
@@ -484,15 +506,15 @@ function App() {
             {alerts.filter(a => activeAlertTab === 'all' || a.kind === 'alert').map((item, idx) => (
               <div key={idx} className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/60 transition-all hover:-translate-y-1">
                 <div className="flex items-start gap-3">
-                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border ${item.kind === 'alert' ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-indigo-50 text-[#002366] border-indigo-100'}`}>
-                    {item.kind === 'alert' ? <AlertTriangle size={20} /> : <ClipboardList size={20} />}
+                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border ${item.kind === 'alert' ? 'bg-rose-50 text-rose-500 border-rose-100' : item.kind === 'reply' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-indigo-50 text-[#002366] border-indigo-100'}`}>
+                    {item.kind === 'alert' ? <AlertTriangle size={20} /> : item.kind === 'reply' ? <MessageSquare size={20} /> : <ClipboardList size={20} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${item.kind === 'alert' ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-[#002366]'} truncate`}>{item.subject}</span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${item.kind === 'alert' ? 'bg-rose-100 text-rose-600' : item.kind === 'reply' ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-[#002366]'} truncate`}>{item.subject}</span>
                       <span className="text-[10px] text-slate-400 font-bold">{formatDate(item.date)}</span>
                     </div>
-                    <h3 className="font-black text-sm text-slate-800">{item.kind === 'alert' ? 'تنبيه سلوكي' : 'تحديث درجة'}</h3>
+                    <h3 className="font-black text-sm text-slate-800">{item.kind === 'alert' ? 'تنبيه سلوكي' : item.kind === 'reply' ? 'رسالة من المعلم' : 'تحديث درجة'}</h3>
                     <p className="text-xs text-slate-500 font-bold leading-snug">{item.description || `تم رصد درجة: ${item.category} (${item.score})`}</p>
                   </div>
                 </div>
@@ -510,7 +532,11 @@ function App() {
           <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] p-8 shadow-sm border border-white/60 text-center mb-6">
               <div className="w-24 h-24 bg-indigo-50 border border-indigo-100 rounded-[2rem] mx-auto flex items-center justify-center text-[#002366] mb-4 shadow-inner"><User size={40} /></div>
               <h3 className="text-xl font-black text-slate-800 mb-1">ولي أمر الطالب</h3>
-              <p className="text-[#002366] text-sm font-bold bg-indigo-50/50 py-2 px-6 rounded-xl border border-indigo-100/50 inline-block">{allSubjects[0]?.name}</p>
+              <p className="text-[#002366] text-sm font-bold bg-indigo-50/50 py-2 px-6 rounded-xl border border-indigo-100/50 inline-block mt-2">{allSubjects[0]?.name}</p>
+              <div className="mt-3">
+                  <span className="text-[10px] font-bold text-slate-400">الكود السري المربوط: </span>
+                  <span className="text-xs font-mono font-black text-[#002366] bg-slate-100 px-2 py-1 rounded-md" dir="ltr">{secretCode}</span>
+              </div>
           </div>
           <button onClick={handleLogout} className="w-full bg-rose-50/80 hover:bg-rose-100 border border-rose-100 text-rose-600 py-5 rounded-2xl font-black flex items-center justify-center gap-3 transition-all active:scale-95 shadow-sm"><LogOut size={20} /> تسجيل الخروج</button>
           <div className="mt-12 text-center opacity-50">
@@ -524,7 +550,6 @@ function App() {
   return (
     <div className="h-[100dvh] w-full relative overflow-hidden bg-[#f0f4f8] font-sans text-slate-800" dir="rtl">
       
-      {/* 💉 الفقاعات المحيطية الزرقاء لإبراز التأثير الزجاجي بشكل ملكي */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[40%] bg-indigo-300/20 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[50%] bg-blue-300/20 rounded-full blur-[100px] pointer-events-none"></div>
 
@@ -534,7 +559,6 @@ function App() {
         {currentTab === 'profile' && renderProfile()}
       </div>
 
-      {/* 💉 الشريط السفلي (Glassmorphism Royal Blue) */}
       <nav className="absolute bottom-0 left-0 right-0 z-[90] flex justify-around items-center px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 bg-white/60 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,35,102,0.06)] border-t border-white/60 transition-all">
         <button onClick={() => { setCurrentTab('home'); setSelectedSubject(null); }} className={`flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 ${currentTab === 'home' ? 'text-[#002366] scale-110 -translate-y-1' : 'text-slate-400 hover:text-indigo-400'}`}>
           <LayoutGrid size={22} className={currentTab === 'home' ? 'fill-indigo-50/50' : ''} /><span className="text-[9px] font-black mt-1">الرئيسية</span>
@@ -547,18 +571,41 @@ function App() {
         </button>
       </nav>
 
-      {/* نافذة الرسائل */}
-      {isMessageOpen && (
+      {/* 💉 نافذة الرسائل المحدثة التي تحتوي على سجل الردود! */}
+      {isMessageOpen && selectedSubject && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-sm rounded-t-[2.5rem] sm:rounded-[2.5rem] p-7 shadow-2xl border border-white/50 animate-in slide-in-from-bottom-8 sm:zoom-in-95">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black text-[#002366] flex items-center gap-2 text-lg"><MessageSquare size={22}/> رسالة للمعلم</h3>
+          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 shadow-2xl border border-white/50 animate-in slide-in-from-bottom-8 sm:zoom-in-95 flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center mb-4 shrink-0">
+              <h3 className="font-black text-[#002366] flex items-center gap-2 text-lg"><MessageSquare size={22}/> تواصل مع المعلم</h3>
               <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-indigo-50 text-indigo-400 rounded-full hover:bg-indigo-100 transition-colors"><X size={20}/></button>
             </div>
-            <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب ملاحظاتك هنا..." className="w-full h-40 bg-white/50 border border-indigo-100 rounded-[1.5rem] p-5 text-sm font-bold resize-none outline-none focus:border-[#002366] focus:bg-white mb-6 transition-all text-slate-800 placeholder:text-indigo-200"></textarea>
-            <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#002366] text-white py-5 rounded-[1.5rem] font-black flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 transition-all shadow-xl shadow-indigo-900/20">
-              {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
-            </button>
+            
+            {/* 💉 صندوق الوارد لردود المعلم (Inbox) */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar mb-4 space-y-3 pr-1">
+                <p className="text-[10px] font-bold text-slate-400 text-center mb-2">سجل الردود لـمادة {selectedSubject.subject}</p>
+                {(!selectedSubject.teacherReplies || selectedSubject.teacherReplies.length === 0) ? (
+                    <div className="text-center text-slate-400 text-xs py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        لا توجد رسائل سابقة
+                    </div>
+                ) : (
+                    selectedSubject.teacherReplies.map((reply: any, idx: number) => (
+                        <div key={idx} className="bg-indigo-50/70 border border-indigo-100 p-4 rounded-2xl rounded-tr-sm">
+                            <div className="flex justify-between items-start mb-2">
+                                <span className="text-xs font-black text-[#002366]">{reply.teacherName || 'المعلم'}</span>
+                                <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md">{formatDate(reply.date)}</span>
+                            </div>
+                            <p className="text-sm font-bold text-slate-700 leading-relaxed">{reply.message}</p>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            <div className="shrink-0 pt-3 border-t border-indigo-50">
+                <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب استفسارك هنا..." className="w-full h-24 bg-white/50 border border-indigo-100 rounded-[1.5rem] p-4 text-sm font-bold resize-none outline-none focus:border-[#002366] focus:bg-white mb-3 transition-all text-slate-800 placeholder:text-indigo-200"></textarea>
+                <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#002366] text-white py-4 rounded-[1.5rem] font-black flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 transition-all shadow-xl shadow-indigo-900/20">
+                  {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18}/></>}
+                </button>
+            </div>
           </div>
         </div>
       )}
