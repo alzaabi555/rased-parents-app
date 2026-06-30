@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   Loader2,
@@ -8,7 +8,8 @@ import {
   BookOpen,
   ChevronLeft,
   MessageSquare,
-  Send,
+  MessagesSquare,
+  SendHorizontal,
   X,
   Code,
   User,
@@ -31,14 +32,15 @@ import {
   Lightbulb,
   MailCheck,
   Award,
-  Clock3
+  Clock3,
+  CheckCheck,
+  CircleDashed
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
 const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec';
 
-// الهوية البصرية الموحدة لعائلة راصد
 type TabId = 'home' | 'alerts' | 'profile';
 type AlertTabId = 'all' | 'urgent';
 
@@ -88,6 +90,13 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString('ar-OM', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
+const formatDateTime = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ar-OM', { dateStyle: 'medium', timeStyle: 'short' });
+};
+
 const getLatestDate = (subjects: AnySubject[]) => {
   const dates: number[] = [];
   subjects.forEach(subject => {
@@ -114,6 +123,7 @@ const buildParentSummary = (subjects: AnySubject[]) => {
   const negativeCount = subjects.reduce((sum, subject) => sum + safeList(subject?.behaviors).filter((b: any) => b?.type === 'negative').length, 0);
   const gradesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.grades).length, 0);
   const repliesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.teacherReplies).length, 0);
+  const parentMessagesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.parentMessages).length, 0);
   const gamesCount = subjects.reduce((sum, subject) => sum + getSubjectGameResults(subject).length, 0);
   const latestUpdate = getLatestDate(subjects);
 
@@ -135,6 +145,7 @@ const buildParentSummary = (subjects: AnySubject[]) => {
     negativeCount,
     gradesCount,
     repliesCount,
+    parentMessagesCount,
     gamesCount,
     latestUpdate,
     status,
@@ -142,9 +153,45 @@ const buildParentSummary = (subjects: AnySubject[]) => {
   };
 };
 
-// =========================================================================
-// 💎 1. الغلاف الزجاجي الموحد لعائلة راصد
-// =========================================================================
+const getLocalConversationKey = (rasedId: string, schoolName: string, subject: string) =>
+  `rased_parent_conversation_${String(rasedId || '').trim().toUpperCase()}_${String(schoolName || '').trim()}_${String(subject || '').trim()}`;
+
+const readLocalParentMessages = (rasedId: string, schoolName: string, subject: string) => {
+  try {
+    const list = JSON.parse(localStorage.getItem(getLocalConversationKey(rasedId, schoolName, subject)) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalParentMessage = (rasedId: string, schoolName: string, subject: string, message: any) => {
+  const current = readLocalParentMessages(rasedId, schoolName, subject);
+  const next = [...current, message].slice(-50);
+  localStorage.setItem(getLocalConversationKey(rasedId, schoolName, subject), JSON.stringify(next));
+};
+
+const mergeParentConversation = (cloudMessages: any[] = [], localMessages: any[] = []) => {
+  const cloudList = Array.isArray(cloudMessages) ? cloudMessages : [];
+  const localList = Array.isArray(localMessages) ? localMessages : [];
+  const merged: any[] = [];
+
+  cloudList.forEach(item => merged.push({ ...item, status: item.status || 'new', source: 'cloud' }));
+
+  localList.forEach(localItem => {
+    const localTime = new Date(localItem.date || 0).getTime();
+    const hasCloudMatch = cloudList.some(cloudItem => {
+      const cloudTime = new Date(cloudItem.date || 0).getTime();
+      const sameMessage = String(cloudItem.message || '').trim() === String(localItem.message || '').trim();
+      const nearTime = Math.abs(cloudTime - localTime) < 5 * 60 * 1000;
+      return sameMessage && nearTime;
+    });
+    if (!hasCloudMatch) merged.push({ ...localItem, source: 'local' });
+  });
+
+  return merged.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+};
+
 const GlassLayout: React.FC<{
   title: string;
   subtitle?: string;
@@ -210,15 +257,11 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; subtitle?: st
   </div>
 );
 
-// =========================================================================
-// 💎 2. شاشة تفاصيل المادة
-// =========================================================================
 const SubjectDetails: React.FC<{
   subjectData: any;
   onBack: () => void;
   onOpenMessage: () => void;
-  formatDate: (dateString: string) => string;
-}> = ({ subjectData, onBack, onOpenMessage, formatDate }) => {
+}> = ({ subjectData, onBack, onOpenMessage }) => {
   const s = subjectData;
   const allPos = safeList<any>(s.behaviors).filter((b: any) => b.type === 'positive');
   const disciplineCount = allPos.filter((b: any) => b.description === 'هدوء وانضباط').length;
@@ -347,7 +390,7 @@ const SubjectDetails: React.FC<{
           </section>
 
           <button onClick={onOpenMessage} className="w-full mt-2 bg-gradient-to-r from-[#002366] to-[#1e40af] hover:shadow-lg hover:shadow-indigo-900/30 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 transition-all active:scale-95 shadow-md">
-            <MessageSquare size={18} /> تواصل مع معلم المادة
+            <MessageSquare size={18} /> صندوق رسائل المادة
           </button>
         </div>
       </GlassLayout>
@@ -355,9 +398,6 @@ const SubjectDetails: React.FC<{
   );
 };
 
-// =========================================================================
-// 💎 3. التطبيق الرئيسي
-// =========================================================================
 function App() {
   const [secretCode, setSecretCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -373,10 +413,22 @@ function App() {
   const [isMessageOpen, setIsMessageOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
+  const [localConversationTick, setLocalConversationTick] = useState(0);
 
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
 
   const parentSummary = useMemo(() => buildParentSummary(allSubjects), [allSubjects]);
+
+  const activeConversationItems = useMemo(() => {
+    if (!selectedSubject) return [];
+    const rasedId = String(secretCode || selectedSubject.rasedId || selectedSubject.parentCode || '').trim().toUpperCase();
+    const schoolName = selectedSubject.schoolName || 'غير محدد';
+    const subject = selectedSubject.subject || 'غير محدد';
+    return mergeParentConversation(
+      Array.isArray(selectedSubject.parentMessages) ? selectedSubject.parentMessages : [],
+      readLocalParentMessages(rasedId, schoolName, subject)
+    );
+  }, [selectedSubject, secretCode, localConversationTick]);
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -452,9 +504,9 @@ function App() {
               const newB = newSub.behaviors?.length || 0;
               if (newB > oldB) newAlerts += (newB - oldB);
 
-              const oldR = oldSub.teacherReplies?.length || 0;
-              const newR = newSub.teacherReplies?.length || 0;
-              if (newR > oldR) newReplies += (newR - oldR);
+              const oldParentMessages = oldSub.parentMessages?.filter((m: any) => m.teacherReply)?.length || oldSub.teacherReplies?.length || 0;
+              const newParentMessages = newSub.parentMessages?.filter((m: any) => m.teacherReply)?.length || newSub.teacherReplies?.length || 0;
+              if (newParentMessages > oldParentMessages) newReplies += (newParentMessages - oldParentMessages);
             }
           });
 
@@ -474,7 +526,7 @@ function App() {
         setAllSubjects(newSubjects);
 
         if (selectedSubject) {
-          const updatedSelected = newSubjects.find((s: any) => s.subject === selectedSubject.subject);
+          const updatedSelected = newSubjects.find((s: any) => s.subject === selectedSubject.subject && s.schoolName === selectedSubject.schoolName);
           if (updatedSelected) setSelectedSubject(updatedSelected);
         }
 
@@ -486,7 +538,7 @@ function App() {
           setTimeout(() => setShowWelcomeScreen(false), 2200);
         }
       } else if (!isSilent) {
-        setError('لم يتم العثور على بيانات، تأكد من صحة الكود السري (مثال: RSD-A7X9).');
+        setError('لم يتم العثور على بيانات، تأكد من صحة كود راصد السري.');
       }
     } catch (err) {
       if (!isSilent) setError('خطأ في الاتصال بالسحابة.');
@@ -532,31 +584,62 @@ function App() {
   const handleSendMessage = async () => {
     if (!messageText.trim() || !selectedSubject) return;
     setIsSendingMsg(true);
+
+    const rasedId = String(secretCode || selectedSubject.rasedId || selectedSubject.parentCode || '').trim().toUpperCase();
+    const schoolName = selectedSubject.schoolName || 'غير محدد';
+    const subject = selectedSubject.subject || 'غير محدد';
+    const text = messageText.trim();
+    const now = new Date().toISOString();
+
+    const localMessage = {
+      localId: `local_${Date.now()}`,
+      date: now,
+      rasedId,
+      civilID: rasedId,
+      parentCode: rasedId,
+      studentName: selectedSubject.name,
+      schoolName,
+      subject,
+      message: text,
+      status: 'pending',
+      teacherReply: '',
+      replyDate: '',
+      teacherName: ''
+    };
+
+    saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
+    setLocalConversationTick(prev => prev + 1);
+
     const payload = {
       action: 'sendMessage',
-      civilID: secretCode,
-      rasedId: secretCode,
+      civilID: rasedId,
+      rasedId,
+      parentCode: rasedId,
       studentName: selectedSubject.name,
-      schoolName: selectedSubject.schoolName || 'غير محدد',
-      subject: selectedSubject.subject,
-      message: messageText.trim()
+      schoolName,
+      subject,
+      message: text
     };
+
     try {
-      const response = await fetch(GOOGLE_WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const response = await fetch(GOOGLE_WEB_APP_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
       const result = await response.json();
       if (result.status === 'success') {
-        alert('تم الإرسال بنجاح! ✅');
         setMessageText('');
         fetchStudentData(secretCode, false, true);
+      } else {
+        alert(result.message || 'تعذر إرسال الرسالة.');
       }
     } catch (error) {
-      alert('خطأ في الإرسال.');
+      alert('تم حفظ الرسالة محليًا، لكن تعذر إرسالها للسحابة الآن.');
     } finally {
       setIsSendingMsg(false);
     }
   };
 
-  // شاشة تسجيل الدخول بعد توحيد الهوية البصرية وإلغاء الخلفية الرمضانية/الداكنة
   if (!allSubjects.length && !showWelcomeScreen) {
     return (
       <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center font-sans overflow-hidden relative px-6 bg-[#f0f4f8]" dir="rtl">
@@ -699,10 +782,10 @@ function App() {
               {insights.map(item => <InsightCard key={item.label} {...item} />)}
             </section>
 
-            {(parentSummary.repliesCount > 0 || parentSummary.gradesCount > 0 || parentSummary.gamesCount > 0) && (
+            {(parentSummary.repliesCount > 0 || parentSummary.gradesCount > 0 || parentSummary.gamesCount > 0 || parentSummary.parentMessagesCount > 0) && (
               <section className="grid grid-cols-3 gap-3">
                 <InsightCard label="الدرجات" value={parentSummary.gradesCount} hint="تحديثات مرصودة" icon={<ClipboardList size={18} />} tone="blue" />
-                <InsightCard label="رسائل المعلمين" value={parentSummary.repliesCount} hint="ردود واردة" icon={<MailCheck size={18} />} tone="green" />
+                <InsightCard label="الرسائل" value={parentSummary.parentMessagesCount || parentSummary.repliesCount} hint="استفسارات وردود" icon={<MailCheck size={18} />} tone="green" />
                 <InsightCard label="الألعاب" value={parentSummary.gamesCount} hint="أنشطة تعليمية" icon={<Gamepad2 size={18} />} tone="amber" />
               </section>
             )}
@@ -716,6 +799,7 @@ function App() {
                   const positive = safeList<any>(sub.behaviors).filter((b: any) => b.type === 'positive').length;
                   const negative = safeList<any>(sub.behaviors).filter((b: any) => b.type === 'negative').length;
                   const gameCount = getSubjectGameResults(sub).length;
+                  const messageCount = safeList<any>(sub.parentMessages).length;
                   const progress = Math.min(100, Math.max(8, (Number(sub.totalPoints || 0) + 40)));
                   return (
                     <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white/85 backdrop-blur-md rounded-[2rem] p-5 shadow-sm border border-white/70 hover:border-indigo-200 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all">
@@ -733,6 +817,7 @@ function App() {
                       <div className="mt-4 flex flex-wrap gap-1.5">
                         <span className="text-[9px] font-black px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">+{positive} إيجابي</span>
                         <span className={`text-[9px] font-black px-2 py-1 rounded-lg border ${negative > 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{negative} تنبيه</span>
+                        {messageCount > 0 && <span className="text-[9px] font-black px-2 py-1 rounded-lg bg-indigo-50 text-[#002366] border border-indigo-100">{messageCount} رسالة</span>}
                         {gameCount > 0 && <span className="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-50 text-amber-600 border border-amber-100">{gameCount} لعبة</span>}
                       </div>
 
@@ -758,7 +843,7 @@ function App() {
     allSubjects.forEach(sub => {
       safeList<any>(sub.behaviors).filter((b: any) => b.type === 'negative').forEach((b: any) => alerts.push({ ...b, subject: sub.subject, kind: 'alert' }));
       safeList<any>(sub.grades).forEach((g: any) => alerts.push({ ...g, subject: sub.subject, kind: 'grade' }));
-      safeList<any>(sub.teacherReplies).forEach((r: any) => alerts.push({ ...r, description: `رد المعلم: ${r.message}`, subject: sub.subject, kind: 'reply' }));
+      safeList<any>(sub.parentMessages).filter((m: any) => m.teacherReply).forEach((m: any) => alerts.push({ ...m, description: `رد المعلم: ${m.teacherReply}`, subject: sub.subject, kind: 'reply', date: m.replyDate || m.date }));
       getSubjectGameResults(sub).forEach((g: any) => alerts.push({ ...g, description: `إنجاز في لعبة تعليمية: ${g.gameName || g.title || g.gameType || 'نشاط'}`, subject: sub.subject, kind: 'game' }));
     });
     alerts.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
@@ -828,7 +913,7 @@ function App() {
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[50%] bg-blue-300/20 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="absolute inset-0 z-10">
-        {currentTab === 'home' && (!selectedSubject ? renderDashboard() : <SubjectDetails subjectData={selectedSubject} onBack={() => setSelectedSubject(null)} onOpenMessage={() => setIsMessageOpen(true)} formatDate={formatDate} />)}
+        {currentTab === 'home' && (!selectedSubject ? renderDashboard() : <SubjectDetails subjectData={selectedSubject} onBack={() => setSelectedSubject(null)} onOpenMessage={() => setIsMessageOpen(true)} />)}
         {currentTab === 'alerts' && renderNotifications()}
         {currentTab === 'profile' && renderProfile()}
       </div>
@@ -849,22 +934,60 @@ function App() {
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
           <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 shadow-2xl border border-white/50 animate-in slide-in-from-bottom-8 sm:zoom-in-95 flex flex-col max-h-[85vh]">
             <div className="flex justify-between items-center mb-4 shrink-0">
-              <h3 className="font-black text-[#002366] flex items-center gap-2 text-lg"><MessageSquare size={22} /> تواصل مع المعلم</h3>
+              <h3 className="font-black text-[#002366] flex items-center gap-2 text-lg"><MessagesSquare size={22} /> صندوق رسائل المادة</h3>
               <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-indigo-50 text-indigo-400 rounded-full hover:bg-indigo-100 transition-colors"><X size={20} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar mb-4 space-y-3 pr-1">
-              <p className="text-[10px] font-bold text-slate-400 text-center mb-2">سجل الردود لمادة {selectedSubject.subject}</p>
-              {safeList(selectedSubject.teacherReplies).length === 0 ? (
-                <div className="text-center text-slate-400 text-xs py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">لا توجد رسائل سابقة</div>
+              <p className="text-[10px] font-bold text-slate-400 text-center mb-2">
+                صندوق رسائل مادة {selectedSubject.subject}
+              </p>
+
+              {activeConversationItems.length === 0 ? (
+                <div className="text-center text-slate-400 text-xs py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  لا توجد رسائل سابقة. اكتب استفسارك وسيظهر هنا محفوظًا مع رد المعلم.
+                </div>
               ) : (
-                safeList<any>(selectedSubject.teacherReplies).map((reply: any, idx: number) => (
-                  <div key={idx} className="bg-indigo-50/70 border border-indigo-100 p-4 rounded-2xl rounded-tr-sm">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-black text-[#002366]">{reply.teacherName || 'المعلم'}</span>
-                      <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md">{formatDate(reply.date)}</span>
+                activeConversationItems.map((item: any, idx: number) => (
+                  <div key={item.rowNumber || item.localId || idx} className="space-y-2">
+                    <div className="bg-white border border-indigo-100 p-4 rounded-2xl rounded-tr-sm shadow-sm">
+                      <div className="flex justify-between items-start mb-2 gap-2">
+                        <span className="text-xs font-black text-[#002366] flex items-center gap-1">
+                          <MessagesSquare size={14} /> رسالتك للمعلم
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md shrink-0">
+                          {formatDateTime(item.date)}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.message}</p>
+                      <div className="mt-2 flex justify-end">
+                        {item.status === 'replied' || item.teacherReply ? (
+                          <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                            <CheckCheck size={12} /> تم الرد
+                          </span>
+                        ) : item.status === 'pending' ? (
+                          <span className="text-[10px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                            <CircleDashed size={12} /> محفوظ محليًا
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                            <CircleDashed size={12} /> بانتظار الرد
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm font-bold text-slate-700 leading-relaxed">{reply.message}</p>
+
+                    {item.teacherReply && (
+                      <div className="mr-6 bg-indigo-50/80 border border-indigo-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">
+                        <div className="flex justify-between items-start mb-2 gap-2">
+                          <span className="text-xs font-black text-[#002366]">{item.teacherName || 'المعلم'}</span>
+                          <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md shrink-0">
+                            {formatDateTime(item.replyDate)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.teacherReply}</p>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -872,8 +995,22 @@ function App() {
 
             <div className="shrink-0 pt-3 border-t border-indigo-50">
               <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب استفسارك هنا..." className="w-full h-24 bg-white/50 border border-indigo-100 rounded-[1.5rem] p-4 text-sm font-bold resize-none outline-none focus:border-[#002366] focus:bg-white mb-3 transition-all text-slate-800 placeholder:text-indigo-200" />
-              <button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMsg} className="w-full bg-[#002366] text-white py-4 rounded-[1.5rem] font-black flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 transition-all shadow-xl shadow-indigo-900/20">
-                {isSendingMsg ? <Loader2 className="animate-spin" /> : <>إرسال الرسالة <Send size={18} /></>}
+              <button
+                onClick={handleSendMessage}
+                disabled={!messageText.trim() || isSendingMsg}
+                className="w-full relative overflow-hidden bg-gradient-to-r from-[#002366] via-[#1e40af] to-[#2563eb] text-white py-4 rounded-[1.5rem] font-black flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 transition-all shadow-xl shadow-indigo-900/20 group"
+              >
+                <span className="absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
+                {isSendingMsg ? (
+                  <Loader2 className="animate-spin relative z-10" />
+                ) : (
+                  <>
+                    <span className="relative z-10">إرسال الاستفسار</span>
+                    <span className="relative z-10 w-9 h-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shadow-inner">
+                      <SendHorizontal size={18} />
+                    </span>
+                  </>
+                )}
               </button>
             </div>
           </div>
