@@ -25,14 +25,10 @@ import {
   Trash2,
   Key,
   Sparkles,
-  TrendingUp,
   ShieldCheck,
-  GraduationCap,
   Gamepad2,
-  Target,
   CalendarCheck2,
   Lightbulb,
-  CheckCircle2,
   MailCheck,
   Award,
   Clock3
@@ -72,8 +68,6 @@ const toneClasses: Record<SummaryInsight['tone'], string> = {
   rose: 'bg-rose-50 text-rose-600 border-rose-100',
   slate: 'bg-slate-50 text-slate-600 border-slate-100'
 };
-
-const formatNumber = (value: number) => Number.isFinite(value) ? value : 0;
 
 const safeList = <T,>(value: T[] | undefined | null): T[] => Array.isArray(value) ? value : [];
 
