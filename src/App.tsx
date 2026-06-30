@@ -39,9 +39,6 @@ import { Capacitor } from '@capacitor/core';
 const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec';
 
 // الهوية البصرية الموحدة لعائلة راصد
-const RASED_BLUE_LIGHT = '#1e40af';
-const RASED_BG = '#f0f4f8';
-
 type TabId = 'home' | 'alerts' | 'profile';
 type AlertTabId = 'all' | 'urgent';
 
