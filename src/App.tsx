@@ -132,15 +132,6 @@ const getSubjectGameResults = (subject: AnySubject): LearningGameResult[] => {
   return Array.isArray(firstList) ? firstList : [];
 };
 
-const getGameScoreText = (game: LearningGameResult) => {
-  if (game?.scorePercent !== undefined) return `${Math.round(Number(game.scorePercent) || 0)}%`;
-  if ((game as any)?.scoreText) return String((game as any).scoreText);
-  if (game?.score !== undefined && game?.total !== undefined) return `${game.score} من ${game.total}`;
-  if (game?.percentage !== undefined) return `${game.percentage}%`;
-  if (game?.score !== undefined) return String(game.score);
-  return 'غير محدد';
-};
-
 const getGameScorePercent = (game: LearningGameResult) => {
   const value = game?.scorePercent ?? game?.percentage ?? game?.score ?? 0;
   const num = Number(value);
