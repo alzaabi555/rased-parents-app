@@ -59,6 +59,56 @@ type SummaryInsight = {
   tone: 'blue' | 'green' | 'amber' | 'rose' | 'slate';
 };
 
+type MasteryLevel = 'excellent' | 'good' | 'needs_review' | 'needs_followup' | string;
+
+type LearningGameResult = {
+  id?: string;
+  gameType?: string;
+  gameTitle?: string;
+  gameName?: string;
+  title?: string;
+  subject?: string;
+  unit?: string;
+  lesson?: string;
+  score?: number;
+  scorePercent?: number;
+  percentage?: number;
+  total?: number;
+  totalQuestions?: number;
+  correct?: number;
+  wrong?: number;
+  correctAnswers?: number;
+  wrongAnswers?: number;
+  attemptNumber?: number;
+  masteryLevel?: MasteryLevel;
+  reviewRecommendation?: string;
+  wrongDetails?: any[];
+  playedAt?: string;
+  savedAt?: string;
+  createdAt?: string;
+  date?: string;
+};
+
+type ParentLearningSummary = {
+  totalActivities: number;
+  averageScore: number;
+  latestResult: LearningGameResult | null;
+  needsReview: Array<{
+    subject?: string;
+    lesson?: string;
+    count?: number;
+    latestScore?: number;
+    recommendation?: string;
+  }>;
+  strengths: Array<{
+    subject?: string;
+    lesson?: string;
+    count?: number;
+    latestScore?: number;
+  }>;
+  recommendation: string;
+};
+
 const toneClasses: Record<SummaryInsight['tone'], string> = {
   blue: 'bg-indigo-50 text-[#002366] border-indigo-100',
   green: 'bg-emerald-50 text-emerald-600 border-emerald-100',
@@ -69,18 +119,60 @@ const toneClasses: Record<SummaryInsight['tone'], string> = {
 
 const safeList = <T,>(value: T[] | undefined | null): T[] => Array.isArray(value) ? value : [];
 
-const getSubjectGameResults = (subject: AnySubject) => {
-  const candidates = [subject?.gameResults, subject?.games, subject?.educationalGames, subject?.studentGamesResults];
+const getSubjectGameResults = (subject: AnySubject): LearningGameResult[] => {
+  const candidates = [
+    subject?.gameResults,
+    subject?.games,
+    subject?.educationalGames,
+    subject?.studentGamesResults,
+    subject?.gameResultsSummary?.results,
+    subject?.learningSummary?.results
+  ];
   const firstList = candidates.find(Array.isArray);
   return Array.isArray(firstList) ? firstList : [];
 };
 
-const getGameScoreText = (game: any) => {
-  if (game?.scoreText) return String(game.scoreText);
+const getGameScoreText = (game: LearningGameResult) => {
+  if (game?.scorePercent !== undefined) return `${Math.round(Number(game.scorePercent) || 0)}%`;
+  if ((game as any)?.scoreText) return String((game as any).scoreText);
   if (game?.score !== undefined && game?.total !== undefined) return `${game.score} من ${game.total}`;
   if (game?.percentage !== undefined) return `${game.percentage}%`;
   if (game?.score !== undefined) return String(game.score);
   return 'غير محدد';
+};
+
+const getGameScorePercent = (game: LearningGameResult) => {
+  const value = game?.scorePercent ?? game?.percentage ?? game?.score ?? 0;
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.round(num) : 0;
+};
+
+const getGameTitle = (game: LearningGameResult) => {
+  return game?.gameTitle || game?.gameName || game?.title || game?.gameType || 'نشاط تعليمي';
+};
+
+const getGameDate = (game: LearningGameResult) => {
+  return game?.playedAt || game?.savedAt || game?.createdAt || game?.date || '';
+};
+
+const getMasteryArabic = (level?: MasteryLevel) => {
+  switch (level) {
+    case 'excellent': return 'ممتاز';
+    case 'good': return 'جيد';
+    case 'needs_review': return 'يحتاج مراجعة';
+    case 'needs_followup': return 'يحتاج متابعة';
+    default: return 'غير محدد';
+  }
+};
+
+const getMasteryTone = (level?: MasteryLevel): SummaryInsight['tone'] => {
+  switch (level) {
+    case 'excellent': return 'green';
+    case 'good': return 'blue';
+    case 'needs_review': return 'amber';
+    case 'needs_followup': return 'rose';
+    default: return 'slate';
+  }
 };
 
 const formatDate = (dateString: string) => {
@@ -112,9 +204,87 @@ const getLatestDate = (subjects: AnySubject[]) => {
       const time = new Date(item?.date).getTime();
       if (!Number.isNaN(time)) dates.push(time);
     });
+    getSubjectGameResults(subject).forEach((game: LearningGameResult) => {
+      const time = new Date(getGameDate(game)).getTime();
+      if (!Number.isNaN(time)) dates.push(time);
+    });
   });
   if (!dates.length) return '';
   return new Date(Math.max(...dates)).toISOString();
+};
+
+const buildLearningSummaryFromSubjects = (subjects: AnySubject[]): ParentLearningSummary => {
+  const cloudSummary = subjects
+    .map(s => s?.gameResultsSummary || s?.learningSummary || s?.studentLearningSummary)
+    .find(summary => summary && typeof summary === 'object');
+
+  if (cloudSummary) {
+    return {
+      totalActivities: Number(cloudSummary.totalActivities || 0),
+      averageScore: Number(cloudSummary.averageScore || 0),
+      latestResult: cloudSummary.latestResult || null,
+      needsReview: Array.isArray(cloudSummary.needsReview) ? cloudSummary.needsReview : [],
+      strengths: Array.isArray(cloudSummary.strengths) ? cloudSummary.strengths : [],
+      recommendation: cloudSummary.recommendation || 'تابع نتائج الألعاب التعليمية بصورة دورية.'
+    };
+  }
+
+  const allGames: LearningGameResult[] = [];
+  subjects.forEach(subject => {
+    getSubjectGameResults(subject).forEach(game => {
+      allGames.push({ ...game, subject: game.subject || subject.subject });
+    });
+  });
+
+  allGames.sort((a, b) => new Date(getGameDate(b) || 0).getTime() - new Date(getGameDate(a) || 0).getTime());
+
+  if (!allGames.length) {
+    return {
+      totalActivities: 0,
+      averageScore: 0,
+      latestResult: null,
+      needsReview: [],
+      strengths: [],
+      recommendation: 'لا توجد نتائج ألعاب كافية حتى الآن. شجّع الطالب على تجربة تحديات اليوم.'
+    };
+  }
+
+  const total = allGames.length;
+  const averageScore = Math.round(allGames.reduce((sum, game) => sum + getGameScorePercent(game), 0) / total);
+  const needsReviewMap = new Map<string, any>();
+  const strengthsMap = new Map<string, any>();
+
+  allGames.forEach(game => {
+    const score = getGameScorePercent(game);
+    const lesson = game.lesson || 'غير محدد';
+    const subject = game.subject || 'عام';
+    const key = `${subject}|${lesson}`;
+
+    if (game.masteryLevel === 'needs_review' || game.masteryLevel === 'needs_followup' || score < 60) {
+      const current = needsReviewMap.get(key) || { subject, lesson, count: 0, latestScore: score, recommendation: game.reviewRecommendation };
+      current.count += 1;
+      current.latestScore = score;
+      current.recommendation = game.reviewRecommendation || current.recommendation;
+      needsReviewMap.set(key, current);
+    }
+
+    if (game.masteryLevel === 'excellent' || score >= 90) {
+      const current = strengthsMap.get(key) || { subject, lesson, count: 0, latestScore: score };
+      current.count += 1;
+      current.latestScore = score;
+      strengthsMap.set(key, current);
+    }
+  });
+
+  const needsReview = Array.from(needsReviewMap.values()).sort((a, b) => (b.count || 0) - (a.count || 0));
+  const strengths = Array.from(strengthsMap.values()).sort((a, b) => (b.count || 0) - (a.count || 0));
+
+  const recommendation = needsReview[0]?.recommendation ||
+    (averageScore >= 90
+      ? 'أداء ممتاز. يمكن تشجيع الطالب على تحديات أعلى أو أنشطة إثرائية.'
+      : 'أداء الطالب جيد، ويُنصح بالاستمرار في التحديات التعليمية والمراجعة القصيرة.');
+
+  return { totalActivities: total, averageScore, latestResult: allGames[0], needsReview, strengths, recommendation };
 };
 
 const buildParentSummary = (subjects: AnySubject[]) => {
@@ -125,6 +295,7 @@ const buildParentSummary = (subjects: AnySubject[]) => {
   const repliesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.teacherReplies).length, 0);
   const parentMessagesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.parentMessages).length, 0);
   const gamesCount = subjects.reduce((sum, subject) => sum + getSubjectGameResults(subject).length, 0);
+  const learningSummary = buildLearningSummaryFromSubjects(subjects);
   const latestUpdate = getLatestDate(subjects);
 
   const status = negativeCount === 0
@@ -147,6 +318,7 @@ const buildParentSummary = (subjects: AnySubject[]) => {
     repliesCount,
     parentMessagesCount,
     gamesCount,
+    learningSummary,
     latestUpdate,
     status,
     recommendation
@@ -271,9 +443,11 @@ const SubjectDetails: React.FC<{
 
   const subjectRecommendation = neg.length > 0
     ? 'توجد ملاحظة تحتاج متابعة. يُفضّل قراءة التنبيه ثم التواصل مع المعلم عند الحاجة.'
-    : displayPos.length > 0
-      ? 'المادة تسير بشكل مطمئن. كلمة تشجيع للطالب ستزيد دافعيته.'
-      : 'لا توجد ملاحظات كثيرة بعد. تابع نتائج الدرجات والإنجازات القادمة.';
+    : games.some(g => g.masteryLevel === 'needs_review' || g.masteryLevel === 'needs_followup')
+      ? 'توجد نتائج ألعاب تشير إلى حاجة لمراجعة قصيرة في هذه المادة.'
+      : displayPos.length > 0
+        ? 'المادة تسير بشكل مطمئن. كلمة تشجيع للطالب ستزيد دافعيته.'
+        : 'لا توجد ملاحظات كثيرة بعد. تابع نتائج الدرجات والإنجازات القادمة.';
 
   return (
     <div className="animate-in slide-in-from-left-8 fade-in duration-500 h-full">
@@ -313,15 +487,39 @@ const SubjectDetails: React.FC<{
                 <Gamepad2 size={18} className="text-[#002366]" /> إنجازات الألعاب التعليمية
               </h3>
               <div className="space-y-2">
-                {games.slice(0, 5).map((game: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-indigo-50/50 border border-indigo-100/70">
-                    <div className="min-w-0">
-                      <p className="text-xs font-black text-slate-700 line-clamp-1">{game.gameName || game.title || game.gameType || 'نشاط تعليمي'}</p>
-                      <p className="text-[10px] font-bold text-slate-400 mt-0.5">{game.lesson || game.unit || s.lesson || 'نشاط مرتبط بالمادة'}</p>
+                {games.slice(0, 5).map((game: LearningGameResult, i: number) => {
+                  const masteryTone = getMasteryTone(game.masteryLevel);
+                  return (
+                    <div key={i} className="p-3 rounded-2xl bg-indigo-50/50 border border-indigo-100/70">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-slate-700 line-clamp-1">{getGameTitle(game)}</p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                            {game.lesson || game.unit || s.lesson || 'نشاط مرتبط بالمادة'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-black text-[#002366] bg-white border border-indigo-100 px-2.5 py-1 rounded-xl shrink-0">
+                          {getGameScorePercent(game)}%
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className={`text-[9px] font-black px-2 py-1 rounded-lg border ${toneClasses[masteryTone]}`}>
+                          {getMasteryArabic(game.masteryLevel)}
+                        </span>
+                        {game.attemptNumber && (
+                          <span className="text-[9px] font-black px-2 py-1 rounded-lg bg-slate-50 text-slate-500 border border-slate-100">
+                            محاولة {game.attemptNumber}
+                          </span>
+                        )}
+                      </div>
+                      {game.reviewRecommendation && (
+                        <p className="text-[10px] font-bold text-slate-500 leading-5 mt-2 bg-white/70 border border-white rounded-xl p-2">
+                          {game.reviewRecommendation}
+                        </p>
+                      )}
                     </div>
-                    <span className="text-[10px] font-black text-[#002366] bg-white border border-indigo-100 px-2.5 py-1 rounded-xl shrink-0">{getGameScoreText(game)}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}
@@ -459,6 +657,27 @@ function App() {
     }
   };
 
+  const normalizeSubjectList = (result: any) => {
+    const rawSubjects = Array.isArray(result.subjects)
+      ? result.subjects
+      : Array.isArray(result.data?.subjects)
+        ? result.data.subjects
+        : Array.isArray(result.data)
+          ? result.data
+          : [];
+
+    const studentSummary = result.gameResultsSummary || result.learningSummary || result.data?.gameResultsSummary || result.data?.learningSummary;
+
+    if (studentSummary && rawSubjects.length > 0) {
+      return rawSubjects.map((subject: any, index: number) => index === 0
+        ? { ...subject, gameResultsSummary: studentSummary }
+        : subject
+      );
+    }
+
+    return rawSubjects;
+  };
+
   const fetchStudentData = async (id: string, isManualRefresh = false, isSilent = false) => {
     if (!id.trim()) {
       setError('الرجاء إدخال الكود السري للطالب.');
@@ -482,8 +701,8 @@ function App() {
       const textData = await response.text();
       const result = JSON.parse(textData);
 
-      if (result.status === 'success') {
-        const newSubjects = Array.isArray(result.subjects) ? result.subjects : [];
+      if (result.status === 'success' || result.success === true) {
+        const newSubjects = normalizeSubjectList(result);
         const cachedDataStr = localStorage.getItem(`rased_data_${sanitizedId}`);
         const studentName = newSubjects[0]?.name || 'طالب';
 
@@ -627,7 +846,7 @@ function App() {
         body: JSON.stringify(payload)
       });
       const result = await response.json();
-      if (result.status === 'success') {
+      if (result.status === 'success' || result.success === true) {
         setMessageText('');
         fetchStudentData(secretCode, false, true);
       } else {
@@ -745,6 +964,20 @@ function App() {
     const insights: SummaryInsight[] = [
       { label: 'حالة اليوم', value: parentSummary.status, hint: 'قراءة عامة للمتابعة', icon: <ShieldCheck size={18} />, tone: parentSummary.negativeCount > 2 ? 'rose' : parentSummary.negativeCount > 0 ? 'amber' : 'green' },
       { label: 'إجمالي النقاط', value: parentSummary.totalPoints, hint: 'من جميع المواد', icon: <Trophy size={18} />, tone: 'blue' },
+      {
+        label: 'متوسط الألعاب',
+        value: `${parentSummary.learningSummary.averageScore || 0}%`,
+        hint: `${parentSummary.learningSummary.totalActivities || 0} نشاط تعليمي`,
+        icon: <Gamepad2 size={18} />,
+        tone: parentSummary.learningSummary.averageScore >= 75 ? 'green' : parentSummary.learningSummary.averageScore >= 50 ? 'amber' : 'rose'
+      },
+      {
+        label: 'تحتاج مراجعة',
+        value: parentSummary.learningSummary.needsReview?.length || 0,
+        hint: 'دروس مقترحة للمتابعة',
+        icon: <BookOpen size={18} />,
+        tone: parentSummary.learningSummary.needsReview?.length ? 'amber' : 'green'
+      },
       { label: 'الإنجازات', value: parentSummary.positiveCount, hint: 'ملاحظات إيجابية', icon: <Award size={18} />, tone: 'green' },
       { label: 'التنبيهات', value: parentSummary.negativeCount, hint: 'تحتاج قراءة', icon: <AlertTriangle size={18} />, tone: parentSummary.negativeCount > 0 ? 'rose' : 'slate' }
     ];
@@ -778,6 +1011,25 @@ function App() {
               </div>
             </section>
 
+            <section className="bg-white/80 backdrop-blur-md rounded-[2rem] p-5 shadow-sm border border-white/70">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 shrink-0">
+                  <Lightbulb size={22} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black text-slate-400 mb-1">كيف أساعد ابني؟</p>
+                  <h2 className="text-base font-black text-slate-800 mb-1">
+                    {parentSummary.learningSummary.needsReview?.[0]
+                      ? `راجع ${parentSummary.learningSummary.needsReview[0].lesson || 'الدرس المحدد'}`
+                      : 'متابعة تعليمية مطمئنة'}
+                  </h2>
+                  <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                    {parentSummary.learningSummary.recommendation}
+                  </p>
+                </div>
+              </div>
+            </section>
+
             <section className="grid grid-cols-2 gap-3">
               {insights.map(item => <InsightCard key={item.label} {...item} />)}
             </section>
@@ -786,7 +1038,7 @@ function App() {
               <section className="grid grid-cols-3 gap-3">
                 <InsightCard label="الدرجات" value={parentSummary.gradesCount} hint="تحديثات مرصودة" icon={<ClipboardList size={18} />} tone="blue" />
                 <InsightCard label="الرسائل" value={parentSummary.parentMessagesCount || parentSummary.repliesCount} hint="استفسارات وردود" icon={<MailCheck size={18} />} tone="green" />
-                <InsightCard label="الألعاب" value={parentSummary.gamesCount} hint="أنشطة تعليمية" icon={<Gamepad2 size={18} />} tone="amber" />
+                <InsightCard label="الألعاب" value={parentSummary.gamesCount || parentSummary.learningSummary.totalActivities} hint="أنشطة تعليمية" icon={<Gamepad2 size={18} />} tone="amber" />
               </section>
             )}
 
@@ -800,7 +1052,9 @@ function App() {
                   const negative = safeList<any>(sub.behaviors).filter((b: any) => b.type === 'negative').length;
                   const gameCount = getSubjectGameResults(sub).length;
                   const messageCount = safeList<any>(sub.parentMessages).length;
-                  const progress = Math.min(100, Math.max(8, (Number(sub.totalPoints || 0) + 40)));
+                  const subjectGames = getSubjectGameResults(sub);
+                  const latestGameScore = subjectGames.length ? getGameScorePercent(subjectGames[0]) : 0;
+                  const progress = latestGameScore || Math.min(100, Math.max(8, (Number(sub.totalPoints || 0) + 40)));
                   return (
                     <div key={idx} onClick={() => setSelectedSubject(sub)} className="bg-white/85 backdrop-blur-md rounded-[2rem] p-5 shadow-sm border border-white/70 hover:border-indigo-200 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all">
                       <div className="flex items-start justify-between">
@@ -844,7 +1098,13 @@ function App() {
       safeList<any>(sub.behaviors).filter((b: any) => b.type === 'negative').forEach((b: any) => alerts.push({ ...b, subject: sub.subject, kind: 'alert' }));
       safeList<any>(sub.grades).forEach((g: any) => alerts.push({ ...g, subject: sub.subject, kind: 'grade' }));
       safeList<any>(sub.parentMessages).filter((m: any) => m.teacherReply).forEach((m: any) => alerts.push({ ...m, description: `رد المعلم: ${m.teacherReply}`, subject: sub.subject, kind: 'reply', date: m.replyDate || m.date }));
-      getSubjectGameResults(sub).forEach((g: any) => alerts.push({ ...g, description: `إنجاز في لعبة تعليمية: ${g.gameName || g.title || g.gameType || 'نشاط'}`, subject: sub.subject, kind: 'game' }));
+      getSubjectGameResults(sub).forEach((g: LearningGameResult) => alerts.push({
+        ...g,
+        description: `${getGameTitle(g)} - النتيجة ${getGameScorePercent(g)}%${g.reviewRecommendation ? ` — ${g.reviewRecommendation}` : ''}`,
+        subject: g.subject || sub.subject,
+        kind: 'game',
+        date: getGameDate(g)
+      }));
     });
     alerts.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
 
