@@ -652,6 +652,9 @@ function App() {
   const [isMessageOpen, setIsMessageOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
+  const [replyingToTeacherMessage, setReplyingToTeacherMessage] = useState<any>(null);
+  const [teacherReplyText, setTeacherReplyText] = useState('');
+  const [isSendingTeacherReply, setIsSendingTeacherReply] = useState(false);
   const [localConversationTick, setLocalConversationTick] = useState(0);
 
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
@@ -844,7 +847,85 @@ function App() {
   const handleSendMessage = async () => {
     if (!messageText.trim() || !selectedSubject) return;
     setIsSendingMsg(true);
+const handleSendReplyToTeacherMessage = async () => {
+  if (!teacherReplyText.trim() || !selectedSubject || !replyingToTeacherMessage) return;
 
+  setIsSendingTeacherReply(true);
+
+  const rasedId = String(
+    secretCode ||
+    selectedSubject.rasedId ||
+    selectedSubject.parentCode ||
+    ''
+  ).trim().toUpperCase();
+
+  const schoolName = selectedSubject.schoolName || 'غير محدد';
+  const subject = selectedSubject.subject || 'غير محدد';
+  const text = teacherReplyText.trim();
+  const now = new Date().toISOString();
+
+  const localMessage = {
+    localId: `local_reply_${Date.now()}`,
+    date: now,
+    rasedId,
+    civilID: rasedId,
+    parentCode: rasedId,
+    studentName: selectedSubject.name,
+    schoolName,
+    subject,
+    message: text,
+    status: 'pending',
+    teacherReply: '',
+    replyDate: '',
+    teacherName: '',
+    sender: 'parent',
+    direction: 'parent_to_teacher',
+    messageType: 'teacher_message_reply',
+    replyToRow: replyingToTeacherMessage.rowNumber || '',
+    replyToMessage: replyingToTeacherMessage.message || ''
+  };
+
+  saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
+  setLocalConversationTick(prev => prev + 1);
+
+  const payload = {
+    action: 'sendMessage',
+    civilID: rasedId,
+    rasedId,
+    parentCode: rasedId,
+    studentName: selectedSubject.name,
+    schoolName,
+    subject,
+    message: text,
+
+    sender: 'parent',
+    direction: 'parent_to_teacher',
+    messageType: 'teacher_message_reply',
+    replyToRow: replyingToTeacherMessage.rowNumber || '',
+    replyToMessage: replyingToTeacherMessage.message || ''
+  };
+
+  try {
+    const response = await fetch(GOOGLE_WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (result.status === 'success' || result.success === true) {
+      setTeacherReplyText('');
+      setReplyingToTeacherMessage(null);
+      fetchStudentData(secretCode, false, true);
+    } else {
+      alert(result.message || 'تعذر إرسال الرد للمعلم.');
+    }
+  } catch (error) {
+    alert('تم حفظ الرد محليًا، لكن تعذر إرساله للسحابة الآن.');
+  } finally {
+    setIsSendingTeacherReply(false);
+  }
+};
     const rasedId = String(secretCode || selectedSubject.rasedId || selectedSubject.parentCode || '').trim().toUpperCase();
     const schoolName = selectedSubject.schoolName || 'غير محدد';
     const subject = selectedSubject.subject || 'غير محدد';
@@ -1279,71 +1360,209 @@ function App() {
                   const fromTeacher = isTeacherMessageToParent(item);
                   const messageTypeLabel = getMessageTypeArabic(item.messageType);
 
-                  return (
-                    <div key={item.rowNumber || item.localId || idx} className="space-y-2">
-                      <div
-                        className={`border p-4 rounded-2xl shadow-sm ${
-                          fromTeacher
-                            ? 'mr-6 bg-emerald-50/90 border-emerald-100 rounded-tl-sm'
-                            : 'bg-white border-indigo-100 rounded-tr-sm'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-2 gap-2">
-                          <span
-                            className={`text-xs font-black flex items-center gap-1 ${
-                              fromTeacher ? 'text-emerald-700' : 'text-[#002366]'
-                            }`}
-                          >
-                            {fromTeacher ? <MailCheck size={14} /> : <MessagesSquare size={14} />}
-                            {fromTeacher ? `رسالة من المعلم - ${messageTypeLabel}` : 'رسالتك للمعلم'}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-400 bg-white/80 px-2 py-0.5 rounded-md shrink-0">
-                            {formatDateTime(item.date)}
-                          </span>
-                        </div>
+              return (
+  <div key={item.rowNumber || item.localId || idx} className="space-y-2">
+    <div
+      className={`border p-4 rounded-2xl shadow-sm ${
+        fromTeacher
+          ? 'bg-emerald-50/80 border-emerald-100 rounded-tl-sm'
+          : 'bg-white border-indigo-100 rounded-tr-sm'
+      }`}
+    >
+      <div className="flex justify-between items-start mb-2 gap-2">
+        <div className="min-w-0">
+          <span
+            className={`text-xs font-black flex items-center gap-1 ${
+              fromTeacher ? 'text-emerald-700' : 'text-[#002366]'
+            }`}
+          >
+            {fromTeacher ? (
+              <>
+                <MailCheck size={14} />
+                رسالة من المعلم
+              </>
+            ) : (
+              <>
+                <MessagesSquare size={14} />
+{fromTeacher ? 'رسالة من المعلم' : 'رسالتك للمعلم'} 
+                {fromTeacher && (
+  <div className="mt-3 border-t border-emerald-100 pt-3">
+    {replyingToTeacherMessage === item ? (
+      <div className="space-y-3">
+        <textarea
+          value={teacherReplyText}
+          onChange={(e) => setTeacherReplyText(e.target.value)}
+          placeholder="اكتب ردك على رسالة المعلم..."
+          className="w-full h-24 bg-white border border-emerald-100 rounded-2xl p-3 text-sm font-bold resize-none outline-none focus:border-emerald-500 text-slate-800 placeholder:text-slate-300"
+        />
 
-                        <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.message}</p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setReplyingToTeacherMessage(null);
+              setTeacherReplyText('');
+            }}
+            className="flex-1 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-slate-500 text-xs font-black active:scale-95"
+          >
+            إلغاء
+          </button>
 
-                        {fromTeacher && item.teacherName && (
-                          <p className="mt-2 text-[10px] font-black text-emerald-700 bg-white/70 border border-emerald-100 px-2 py-1 rounded-lg inline-flex">
-                            المعلم: {item.teacherName}
-                          </p>
-                        )}
+          <button
+            type="button"
+            onClick={handleSendReplyToTeacherMessage}
+            disabled={!teacherReplyText.trim() || isSendingTeacherReply}
+            className="flex-1 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-black active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isSendingTeacherReply ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <SendHorizontal size={16} />
+                إرسال الرد
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    ) : (
+      <button
+        type="button"
+        onClick={() => {
+          setReplyingToTeacherMessage(item);
+          setTeacherReplyText('');
+        }}
+        className="w-full py-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-black flex items-center justify-center gap-2 active:scale-95 hover:bg-emerald-100 transition-all"
+      >
+        <MessageSquare size={16} />
+        الرد على المعلم
+      </button>
+    )}
+  </div>
+)}
+              </>
+            )}
+          </span>
 
-                        {!fromTeacher && (
-                          <div className="mt-2 flex justify-end">
-                            {item.status === 'replied' || item.teacherReply ? (
-                              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                                <CheckCheck size={12} /> تم الرد
-                              </span>
-                            ) : item.status === 'pending' ? (
-                              <span className="text-[10px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                                <CircleDashed size={12} /> محفوظ محليًا
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                                <CircleDashed size={12} /> بانتظار الرد
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
+          {fromTeacher && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <span className="text-[9px] font-black bg-white/80 border border-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg">
+                {messageTypeLabel}
+              </span>
 
-                      {!fromTeacher && item.teacherReply && (
-                        <div className="mr-6 bg-indigo-50/80 border border-indigo-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">
-                          <div className="flex justify-between items-start mb-2 gap-2">
-                            <span className="text-xs font-black text-[#002366]">{item.teacherName || 'المعلم'}</span>
-                            <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md shrink-0">
-                              {formatDateTime(item.replyDate)}
-                            </span>
-                          </div>
-                          <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.teacherReply}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })              )}
+              {item.teacherName && (
+                <span className="text-[9px] font-bold text-emerald-700/80">
+                  {item.teacherName}
+                </span>
+              )}
             </div>
+          )}
+        </div>
+
+        <span className="text-[9px] font-bold text-slate-400 bg-white/80 px-2 py-0.5 rounded-md shrink-0 border border-slate-100">
+          {formatDateTime(item.date)}
+        </span>
+      </div>
+
+      <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
+        {item.message}
+      </p>
+
+      {!fromTeacher && (
+        <div className="mt-2 flex justify-end">
+          {item.status === 'replied' || item.teacherReply ? (
+            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+              <CheckCheck size={12} />
+              تم الرد
+            </span>
+          ) : item.status === 'pending' ? (
+            <span className="text-[10px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg flex items-center gap-1">
+              <CircleDashed size={12} />
+              محفوظ محليًا
+            </span>
+          ) : (
+            <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg flex items-center gap-1">
+              <CircleDashed size={12} />
+              بانتظار الرد
+            </span>
+          )}
+        </div>
+      )}
+
+      {fromTeacher && (
+        <div className="mt-3 border-t border-emerald-100 pt-3">
+          {replyingToTeacherMessage === item ? (
+            <div className="space-y-3">
+              <textarea
+                value={teacherReplyText}
+                onChange={(e) => setTeacherReplyText(e.target.value)}
+                placeholder="اكتب ردك على رسالة المعلم..."
+                className="w-full h-24 bg-white border border-emerald-100 rounded-2xl p-3 text-sm font-bold resize-none outline-none focus:border-emerald-500 text-slate-800 placeholder:text-slate-300"
+              />
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplyingToTeacherMessage(null);
+                    setTeacherReplyText('');
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-white border border-slate-100 text-slate-500 text-xs font-black active:scale-95"
+                >
+                  إلغاء
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendReplyToTeacherMessage}
+                  disabled={!teacherReplyText.trim() || isSendingTeacherReply}
+                  className="flex-1 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-black active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSendingTeacherReply ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <SendHorizontal size={16} />
+                      إرسال الرد
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setReplyingToTeacherMessage(item);
+                setTeacherReplyText('');
+              }}
+              className="w-full py-3 rounded-2xl bg-white border border-emerald-100 text-emerald-700 text-xs font-black flex items-center justify-center gap-2 active:scale-95 hover:bg-emerald-100 transition-all"
+            >
+              <MessageSquare size={16} />
+              الرد على المعلم
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+
+    {!fromTeacher && item.teacherReply && (
+      <div className="mr-6 bg-indigo-50/80 border border-indigo-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">
+        <div className="flex justify-between items-start mb-2 gap-2">
+          <span className="text-xs font-black text-[#002366]">
+            {item.teacherName || 'المعلم'}
+          </span>
+          <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md shrink-0">
+            {formatDateTime(item.replyDate)}
+          </span>
+        </div>
+        <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
+          {item.teacherReply}
+        </p>
+      </div>
+    )}
+  </div>
+);
 
             <div className="shrink-0 pt-3 border-t border-indigo-50">
               <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="اكتب استفسارك هنا..." className="w-full h-24 bg-white/50 border border-indigo-100 rounded-[1.5rem] p-4 text-sm font-bold resize-none outline-none focus:border-[#002366] focus:bg-white mb-3 transition-all text-slate-800 placeholder:text-indigo-200" />
