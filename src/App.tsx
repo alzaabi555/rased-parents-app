@@ -287,6 +287,8 @@ const isTeacherMessageToParent = (msg: any) => {
   );
 };
 
+const isParentMessageToTeacher = (msg: any) => !isTeacherMessageToParent(msg);
+
 const getMessageTypeArabic = (type?: string) => {
   switch (type) {
     case 'behavior_alert': return 'تنبيه سلوكي';
