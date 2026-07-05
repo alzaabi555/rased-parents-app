@@ -278,12 +278,45 @@ const buildLearningSummaryFromSubjects = (subjects: AnySubject[]): ParentLearnin
   return { totalActivities: total, averageScore, latestResult: allGames[0], needsReview, strengths, recommendation };
 };
 
+
+const isTeacherMessageToParent = (msg: any) => {
+  return (
+    msg?.sender === 'teacher' ||
+    msg?.direction === 'teacher_to_parent' ||
+    msg?.status === 'teacher_sent'
+  );
+};
+
+const isParentMessageToTeacher = (msg: any) => !isTeacherMessageToParent(msg);
+
+const getMessageTypeArabic = (type?: string) => {
+  switch (type) {
+    case 'behavior_alert': return 'تنبيه سلوكي';
+    case 'performance_report': return 'تقرير أداء';
+    case 'follow_up': return 'طلب متابعة';
+    case 'praise': return 'إشادة';
+    case 'homework': return 'تذكير بواجب';
+    case 'reply': return 'رد من المعلم';
+    default: return 'رسالة عامة';
+  }
+};
+
+const getConversationMessagesSorted = (messages: any[] = []) => {
+  return [...messages].sort((a, b) => {
+    return new Date(a.date || a.replyDate || 0).getTime() - new Date(b.date || b.replyDate || 0).getTime();
+  });
+};
+
 const buildParentSummary = (subjects: AnySubject[]) => {
   const totalPoints = subjects.reduce((sum, subject) => sum + Number(subject?.totalPoints || 0), 0);
   const positiveCount = subjects.reduce((sum, subject) => sum + safeList(subject?.behaviors).filter((b: any) => b?.type === 'positive').length, 0);
   const negativeCount = subjects.reduce((sum, subject) => sum + safeList(subject?.behaviors).filter((b: any) => b?.type === 'negative').length, 0);
   const gradesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.grades).length, 0);
-  const repliesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.teacherReplies).length, 0);
+  const repliesCount = subjects.reduce((sum, subject) => {
+    const teacherReplies = safeList(subject?.teacherReplies).length;
+    const teacherMessages = safeList(subject?.parentMessages).filter((m: any) => isTeacherMessageToParent(m)).length;
+    return sum + teacherReplies + teacherMessages;
+  }, 0);
   const parentMessagesCount = subjects.reduce((sum, subject) => sum + safeList(subject?.parentMessages).length, 0);
   const gamesCount = subjects.reduce((sum, subject) => sum + getSubjectGameResults(subject).length, 0);
   const learningSummary = buildLearningSummaryFromSubjects(subjects);
@@ -578,8 +611,27 @@ const SubjectDetails: React.FC<{
             </div>
           </section>
 
-          <button onClick={onOpenMessage} className="w-full mt-2 bg-gradient-to-r from-[#002366] to-[#1e40af] hover:shadow-lg hover:shadow-indigo-900/30 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 transition-all active:scale-95 shadow-md">
-            <MessageSquare size={18} /> صندوق رسائل المادة
+          <button
+            onClick={onOpenMessage}
+            className="group relative w-full mt-2 overflow-hidden rounded-[1.7rem] bg-gradient-to-r from-[#002366] via-[#1e40af] to-[#2563eb] p-[1px] shadow-xl shadow-indigo-900/20 active:scale-[0.98] transition-all"
+          >
+            <div className="relative rounded-[1.65rem] bg-gradient-to-r from-[#002366] via-[#1e40af] to-[#2563eb] px-5 py-4 text-white">
+              <div className="absolute inset-0 translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-0" />
+              <div className="relative z-10 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-right">
+                  <span className="w-11 h-11 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shadow-inner">
+                    <MessagesSquare size={21} />
+                  </span>
+                  <span className="flex flex-col">
+                    <span className="text-sm font-black">صندوق رسائل المادة</span>
+                    <span className="text-[10px] font-bold text-white/75">مراسلة المعلم ومتابعة الردود</span>
+                  </span>
+                </div>
+                <span className="w-9 h-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
+                  <ChevronLeft size={20} />
+                </span>
+              </div>
+            </div>
           </button>
         </div>
       </GlassLayout>
@@ -814,7 +866,10 @@ function App() {
       status: 'pending',
       teacherReply: '',
       replyDate: '',
-      teacherName: ''
+      teacherName: '',
+      sender: 'parent',
+      direction: 'parent_to_teacher',
+      messageType: 'general'
     };
 
     saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
@@ -828,7 +883,10 @@ function App() {
       studentName: selectedSubject.name,
       schoolName,
       subject,
-      message: text
+      message: text,
+      sender: 'parent',
+      direction: 'parent_to_teacher',
+      messageType: 'general'
     };
 
     try {
@@ -1088,7 +1146,27 @@ function App() {
     allSubjects.forEach(sub => {
       safeList<any>(sub.behaviors).filter((b: any) => b.type === 'negative').forEach((b: any) => alerts.push({ ...b, subject: sub.subject, kind: 'alert' }));
       safeList<any>(sub.grades).forEach((g: any) => alerts.push({ ...g, subject: sub.subject, kind: 'grade' }));
-      safeList<any>(sub.parentMessages).filter((m: any) => m.teacherReply).forEach((m: any) => alerts.push({ ...m, description: `رد المعلم: ${m.teacherReply}`, subject: sub.subject, kind: 'reply', date: m.replyDate || m.date }));
+      safeList<any>(sub.parentMessages).forEach((m: any) => {
+        if (isTeacherMessageToParent(m)) {
+          alerts.push({
+            ...m,
+            description: m.message || 'رسالة من المعلم',
+            subject: sub.subject,
+            kind: 'teacher_message',
+            date: m.date,
+            title: getMessageTypeArabic(m.messageType)
+          });
+        } else if (m.teacherReply) {
+          alerts.push({
+            ...m,
+            description: `رد المعلم: ${m.teacherReply}`,
+            subject: sub.subject,
+            kind: 'reply',
+            date: m.replyDate || m.date,
+            title: 'رد المعلم'
+          });
+        }
+      });
       getSubjectGameResults(sub).forEach((g: LearningGameResult) => alerts.push({
         ...g,
         description: `${getGameTitle(g)} - النتيجة ${getGameScorePercent(g)}%${g.reviewRecommendation ? ` — ${g.reviewRecommendation}` : ''}`,
@@ -1110,15 +1188,15 @@ function App() {
             {alerts.filter(a => activeAlertTab === 'all' || a.kind === 'alert').map((item, idx) => (
               <div key={idx} className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/60 transition-all hover:-translate-y-1">
                 <div className="flex items-start gap-3">
-                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border ${item.kind === 'alert' ? 'bg-rose-50 text-rose-500 border-rose-100' : item.kind === 'reply' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : item.kind === 'game' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-indigo-50 text-[#002366] border-indigo-100'}`}>
-                    {item.kind === 'alert' ? <AlertTriangle size={20} /> : item.kind === 'reply' ? <MessageSquare size={20} /> : item.kind === 'game' ? <Gamepad2 size={20} /> : <ClipboardList size={20} />}
+                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border ${item.kind === 'alert' ? 'bg-rose-50 text-rose-500 border-rose-100' : item.kind === 'reply' || item.kind === 'teacher_message' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : item.kind === 'game' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-indigo-50 text-[#002366] border-indigo-100'}`}>
+                    {item.kind === 'alert' ? <AlertTriangle size={20} /> : item.kind === 'reply' || item.kind === 'teacher_message' ? <MessageSquare size={20} /> : item.kind === 'game' ? <Gamepad2 size={20} /> : <ClipboardList size={20} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1 gap-2">
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${item.kind === 'alert' ? 'bg-rose-100 text-rose-600' : item.kind === 'reply' ? 'bg-emerald-100 text-emerald-600' : item.kind === 'game' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-[#002366]'} truncate`}>{item.subject}</span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${item.kind === 'alert' ? 'bg-rose-100 text-rose-600' : item.kind === 'reply' || item.kind === 'teacher_message' ? 'bg-emerald-100 text-emerald-600' : item.kind === 'game' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-[#002366]'} truncate`}>{item.subject}</span>
                       <span className="text-[10px] text-slate-400 font-bold shrink-0">{formatDate(item.date || item.createdAt)}</span>
                     </div>
-                    <h3 className="font-black text-sm text-slate-800">{item.kind === 'alert' ? 'تنبيه سلوكي' : item.kind === 'reply' ? 'رسالة من المعلم' : item.kind === 'game' ? 'إنجاز تعليمي' : 'تحديث درجة'}</h3>
+                    <h3 className="font-black text-sm text-slate-800">{item.kind === 'alert' ? 'تنبيه سلوكي' : item.kind === 'reply' ? 'رد من المعلم' : item.kind === 'teacher_message' ? (item.title || 'رسالة من المعلم') : item.kind === 'game' ? 'إنجاز تعليمي' : 'تحديث درجة'}</h3>
                     <p className="text-xs text-slate-500 font-bold leading-snug">{item.description || `تم رصد درجة: ${item.category} (${item.score})`}</p>
                   </div>
                 </div>
@@ -1199,49 +1277,74 @@ function App() {
                   لا توجد رسائل سابقة. اكتب استفسارك وسيظهر هنا محفوظًا مع رد المعلم.
                 </div>
               ) : (
-                activeConversationItems.map((item: any, idx: number) => (
-                  <div key={item.rowNumber || item.localId || idx} className="space-y-2">
-                    <div className="bg-white border border-indigo-100 p-4 rounded-2xl rounded-tr-sm shadow-sm">
-                      <div className="flex justify-between items-start mb-2 gap-2">
-                        <span className="text-xs font-black text-[#002366] flex items-center gap-1">
-                          <MessagesSquare size={14} /> رسالتك للمعلم
-                        </span>
-                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md shrink-0">
-                          {formatDateTime(item.date)}
-                        </span>
-                      </div>
-                      <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.message}</p>
-                      <div className="mt-2 flex justify-end">
-                        {item.status === 'replied' || item.teacherReply ? (
-                          <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                            <CheckCheck size={12} /> تم الرد
-                          </span>
-                        ) : item.status === 'pending' ? (
-                          <span className="text-[10px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                            <CircleDashed size={12} /> محفوظ محليًا
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                            <CircleDashed size={12} /> بانتظار الرد
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                getConversationMessagesSorted(activeConversationItems).map((item: any, idx: number) => {
+                  const fromTeacher = isTeacherMessageToParent(item);
+                  const messageTypeLabel = getMessageTypeArabic(item.messageType);
 
-                    {item.teacherReply && (
-                      <div className="mr-6 bg-indigo-50/80 border border-indigo-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">
+                  return (
+                    <div key={item.rowNumber || item.localId || idx} className="space-y-2">
+                      <div
+                        className={`border p-4 rounded-2xl shadow-sm ${
+                          fromTeacher
+                            ? 'mr-6 bg-emerald-50/90 border-emerald-100 rounded-tl-sm'
+                            : 'bg-white border-indigo-100 rounded-tr-sm'
+                        }`}
+                      >
                         <div className="flex justify-between items-start mb-2 gap-2">
-                          <span className="text-xs font-black text-[#002366]">{item.teacherName || 'المعلم'}</span>
-                          <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md shrink-0">
-                            {formatDateTime(item.replyDate)}
+                          <span
+                            className={`text-xs font-black flex items-center gap-1 ${
+                              fromTeacher ? 'text-emerald-700' : 'text-[#002366]'
+                            }`}
+                          >
+                            {fromTeacher ? <MailCheck size={14} /> : <MessagesSquare size={14} />}
+                            {fromTeacher ? `رسالة من المعلم - ${messageTypeLabel}` : 'رسالتك للمعلم'}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400 bg-white/80 px-2 py-0.5 rounded-md shrink-0">
+                            {formatDateTime(item.date)}
                           </span>
                         </div>
-                        <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.teacherReply}</p>
+
+                        <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.message}</p>
+
+                        {fromTeacher && item.teacherName && (
+                          <p className="mt-2 text-[10px] font-black text-emerald-700 bg-white/70 border border-emerald-100 px-2 py-1 rounded-lg inline-flex">
+                            المعلم: {item.teacherName}
+                          </p>
+                        )}
+
+                        {!fromTeacher && (
+                          <div className="mt-2 flex justify-end">
+                            {item.status === 'replied' || item.teacherReply ? (
+                              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                <CheckCheck size={12} /> تم الرد
+                              </span>
+                            ) : item.status === 'pending' ? (
+                              <span className="text-[10px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                <CircleDashed size={12} /> محفوظ محليًا
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                <CircleDashed size={12} /> بانتظار الرد
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))
-              )}
+
+                      {!fromTeacher && item.teacherReply && (
+                        <div className="mr-6 bg-indigo-50/80 border border-indigo-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">
+                          <div className="flex justify-between items-start mb-2 gap-2">
+                            <span className="text-xs font-black text-[#002366]">{item.teacherName || 'المعلم'}</span>
+                            <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md shrink-0">
+                              {formatDateTime(item.replyDate)}
+                            </span>
+                          </div>
+                          <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.teacherReply}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })              )}
             </div>
 
             <div className="shrink-0 pt-3 border-t border-indigo-50">
