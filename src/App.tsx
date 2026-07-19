@@ -879,7 +879,10 @@ function App() {
       direction: 'parent_to_teacher',
       messageType: 'teacher_message_reply',
       replyToRow: replyingToTeacherMessage.rowNumber || '',
-      replyToMessage: replyingToTeacherMessage.message || ''
+      replyToMessage: replyingToTeacherMessage.message || '',
+      semester: replyingToTeacherMessage.semester || selectedSubject.semester || '',
+      className: selectedSubject.className || '',
+      grade: selectedSubject.grade || ''
     };
 
     saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
@@ -898,7 +901,10 @@ function App() {
       direction: 'parent_to_teacher',
       messageType: 'teacher_message_reply',
       replyToRow: replyingToTeacherMessage.rowNumber || '',
-      replyToMessage: replyingToTeacherMessage.message || ''
+      replyToMessage: replyingToTeacherMessage.message || '',
+      semester: replyingToTeacherMessage.semester || selectedSubject.semester || '',
+      className: selectedSubject.className || '',
+      grade: selectedSubject.grade || ''
     };
 
     try {
@@ -949,7 +955,10 @@ function App() {
       teacherName: '',
       sender: 'parent',
       direction: 'parent_to_teacher',
-      messageType: 'general'
+      messageType: 'general',
+      semester: selectedSubject.semester || '',
+      className: selectedSubject.className || '',
+      grade: selectedSubject.grade || ''
     };
 
     saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
@@ -966,7 +975,10 @@ function App() {
       message: text,
       sender: 'parent',
       direction: 'parent_to_teacher',
-      messageType: 'general'
+      messageType: 'general',
+      semester: selectedSubject.semester || '',
+      className: selectedSubject.className || '',
+      grade: selectedSubject.grade || ''
     };
 
     try {
@@ -1414,6 +1426,12 @@ function App() {
                           </span>
                         </div>
 
+                        {item.replyToMessage && (
+                          <div className="mb-2 rounded-xl bg-indigo-50/70 border border-indigo-100 p-2.5">
+                            <p className="text-[9px] font-black text-[#002366] mb-1">رد على رسالة المعلم</p>
+                            <p className="text-[10px] font-bold text-slate-500 leading-5 line-clamp-3">{item.replyToMessage}</p>
+                          </div>
+                        )}
                         <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
                           {item.message}
                         </p>
