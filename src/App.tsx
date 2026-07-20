@@ -304,6 +304,36 @@ const getConversationMessagesSorted = (messages: any[] = []) => {
     return new Date(a.date || a.replyDate || 0).getTime() - new Date(b.date || b.replyDate || 0).getTime();
   });
 };
+const isMeaningfulCloudValue = (value: unknown) => {
+  const normalized = String(value || '').trim();
+  return Boolean(normalized && normalized !== 'غير محدد' && normalized !== 'undefined' && normalized !== 'null');
+};
+const firstMeaningfulCloudValue = (...values: unknown[]) => {
+  const found = values.find(isMeaningfulCloudValue);
+  return found ? String(found).trim() : '';
+};
+const resolveParentMessageContext = (selectedSubject: any, relatedTeacherMessage?: any) => ({
+  schoolName: firstMeaningfulCloudValue(
+    relatedTeacherMessage?.schoolName,
+    selectedSubject?.schoolName
+  ),
+  subject: firstMeaningfulCloudValue(
+    relatedTeacherMessage?.subject,
+    selectedSubject?.subject
+  ),
+  className: firstMeaningfulCloudValue(
+    relatedTeacherMessage?.className,
+    selectedSubject?.className
+  ),
+  grade: firstMeaningfulCloudValue(
+    relatedTeacherMessage?.grade,
+    selectedSubject?.grade
+  ),
+  semester: firstMeaningfulCloudValue(
+    relatedTeacherMessage?.semester,
+    selectedSubject?.semester
+  )
+});
 
 const buildParentSummary = (subjects: AnySubject[]) => {
   const totalPoints = subjects.reduce((sum, subject) => sum + Number(subject?.totalPoints || 0), 0);
@@ -740,7 +770,8 @@ function App() {
       const cacheBuster = new Date().getTime();
       const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${sanitizedId}&t=${cacheBuster}`, {
         method: 'GET',
-        redirect: 'follow'
+        redirect: 'follow',
+        cache: 'no-store'
       });
       const textData = await response.text();
       const result = JSON.parse(textData);
@@ -856,8 +887,13 @@ function App() {
       ''
     ).trim().toUpperCase();
 
-    const schoolName = selectedSubject.schoolName || 'غير محدد';
-    const subject = selectedSubject.subject || 'غير محدد';
+    const context = resolveParentMessageContext(selectedSubject, replyingToTeacherMessage);
+    const { schoolName, subject, className, grade, semester } = context;
+    if (!schoolName || !subject) {
+      alert('تعذر تحديد المدرسة أو المادة لهذه المحادثة. حدّث بيانات الطالب ثم أعد المحاولة.');
+      setIsSendingTeacherReply(false);
+      return;
+    }
     const text = teacherReplyText.trim();
     const now = new Date().toISOString();
 
@@ -880,9 +916,9 @@ function App() {
       messageType: 'teacher_message_reply',
       replyToRow: replyingToTeacherMessage.rowNumber || '',
       replyToMessage: replyingToTeacherMessage.message || '',
-      semester: replyingToTeacherMessage.semester || selectedSubject.semester || '',
-      className: selectedSubject.className || '',
-      grade: selectedSubject.grade || ''
+      semester,
+      className,
+      grade
     };
 
     saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
@@ -903,14 +939,16 @@ function App() {
       messageType: 'teacher_message_reply',
       replyToRow: replyingToTeacherMessage.rowNumber || '',
       replyToMessage: replyingToTeacherMessage.message || '',
-      semester: replyingToTeacherMessage.semester || selectedSubject.semester || '',
-      className: selectedSubject.className || '',
-      grade: selectedSubject.grade || ''
+      semester,
+      className,
+      grade
     };
 
     try {
       const response = await fetch(GOOGLE_WEB_APP_URL, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
 
@@ -936,8 +974,13 @@ function App() {
     setIsSendingMsg(true);
 
     const rasedId = String(secretCode || selectedSubject.rasedId || selectedSubject.parentCode || '').trim().toUpperCase();
-    const schoolName = selectedSubject.schoolName || 'غير محدد';
-    const subject = selectedSubject.subject || 'غير محدد';
+    const context = resolveParentMessageContext(selectedSubject);
+    const { schoolName, subject, className, grade, semester } = context;
+    if (!schoolName || !subject) {
+      alert('تعذر تحديد المدرسة أو المادة. حدّث بيانات الطالب ثم أعد المحاولة.');
+      setIsSendingMsg(false);
+      return;
+    }
     const text = messageText.trim();
     const now = new Date().toISOString();
 
@@ -958,9 +1001,9 @@ function App() {
       sender: 'parent',
       direction: 'parent_to_teacher',
       messageType: 'general',
-      semester: selectedSubject.semester || '',
-      className: selectedSubject.className || '',
-      grade: selectedSubject.grade || ''
+      semester,
+      className,
+      grade
     };
 
     saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
@@ -979,14 +1022,16 @@ function App() {
       sender: 'parent',
       direction: 'parent_to_teacher',
       messageType: 'general',
-      semester: selectedSubject.semester || '',
-      className: selectedSubject.className || '',
-      grade: selectedSubject.grade || ''
+      semester,
+      className,
+      grade
     };
 
     try {
       const response = await fetch(GOOGLE_WEB_APP_URL, {
         method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
       const result = await response.json();
