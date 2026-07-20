@@ -897,6 +897,7 @@ function App() {
       schoolName,
       subject,
       message: text,
+      messageEncoded: encodeURIComponent(text),
       sender: 'parent',
       direction: 'parent_to_teacher',
       messageType: 'teacher_message_reply',
@@ -918,7 +919,8 @@ function App() {
       if (result.status === 'success' || result.success === true) {
         setTeacherReplyText('');
         setReplyingToTeacherMessage(null);
-        fetchStudentData(secretCode, false, true);
+        await fetchStudentData(secretCode, false, true);
+        setTimeout(() => fetchStudentData(secretCode, false, true), 1200);
       } else {
         alert(result.message || 'تعذر إرسال الرد للمعلم.');
       }
@@ -973,6 +975,7 @@ function App() {
       schoolName,
       subject,
       message: text,
+      messageEncoded: encodeURIComponent(text),
       sender: 'parent',
       direction: 'parent_to_teacher',
       messageType: 'general',
