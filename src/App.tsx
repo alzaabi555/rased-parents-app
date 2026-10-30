@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft,
   Loader2,
   LogOut,
   Trophy,
@@ -13,16 +12,11 @@ import {
   Code,
   User,
   RefreshCw,
-  HeartHandshake,
-  School,
-  LayoutGrid,
   Bell,
   AlertTriangle,
   ClipboardList,
   History,
   Users,
-  Trash2,
-  Key,
   Sparkles,
   ShieldCheck,
   Gamepad2,
