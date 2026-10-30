@@ -1,1 +1,0 @@
-export interface ParentStudentIdentity { centralStudentId?: string; centralRasedId?: string; legacyRasedIds?: string[]; historicalRasedId?: string; schoolId?: string; schoolCode?: string; identityStatus?: string; }
