@@ -3,9 +3,9 @@ import { Trophy, Star, ThumbsUp, AlertTriangle, ClipboardList, MessagesSquare, C
 import { GlassLayout } from './GlassLayout';
 import { InsightCard } from './InsightCard';
 import { EmptyState } from './EmptyState';
-import type { AnySubject } from '../types/subject';
+import type { LearningGameResult } from '../types/learning';
 import { toneClasses } from '../constants/toneClasses';
-import { formatDate, getSubjectGameResults, getGameScorePercent, getGameTitle, getMasteryArabic, getMasteryTone } from '../utils/parentViewUtils';
+import { formatDate, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getMasteryArabic, getMasteryTone } from '../utils/parentViewUtils';
 
 export const SubjectDetails: React.FC<{
   subjectData: any;
