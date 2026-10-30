@@ -5,5 +5,6 @@ export const STORAGE_KEYS = {
   savedProfiles: 'rased_saved_profiles',
   studentData: (centralStudentId: string) => `rased_parent_student_data_${centralStudentId}`,
   legacyData: (rasedId: string) => `rased_data_${rasedId}`,
-  conversation: (rasedId: string, schoolName: string, subject: string) => `rased_parent_conversation_${rasedId}_${schoolName}_${subject}`,
+  conversation: (rasedId: string, schoolName: string, subject: string) =>
+    `rased_parent_conversation_${rasedId}_${schoolName}_${subject}`,
 } as const;
