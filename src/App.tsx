@@ -45,6 +45,12 @@ import { GlassLayout } from './components/GlassLayout';
 import { SubjectDetails } from './components/SubjectDetails';
 import { InsightCard } from './components/InsightCard';
 import { EmptyState } from './components/EmptyState';
+import { ParentLogin } from './components/ParentLogin';
+import { WelcomeScreen } from './components/WelcomeScreen';
+import { BottomNavigation } from './components/BottomNavigation';
+import { ParentDashboard } from './components/ParentDashboard';
+import { ParentAlerts } from './components/ParentAlerts';
+import { ParentProfile } from './components/ParentProfile';
 import { formatDate, formatDateTime, buildParentSummary, isTeacherMessageToParent, getMessageTypeArabic, getConversationMessagesSorted, resolveParentMessageContext, readLocalParentMessages, saveLocalParentMessage, mergeParentConversation, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate } from './utils/parentViewUtils';
 
 const getOrCreateParentAccountId = (): string => {
@@ -502,103 +508,21 @@ function App() {
 
   if (!allSubjects.length && !showWelcomeScreen) {
     return (
-      <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center font-sans overflow-hidden relative px-6 bg-[#f0f4f8]" dir="rtl">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[40%] bg-indigo-300/20 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[50%] bg-blue-300/20 rounded-full blur-[100px] pointer-events-none" />
-
-        <main className="w-full max-w-md relative z-10 flex flex-col items-center max-h-screen overflow-y-auto custom-scrollbar py-10">
-          <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 shrink-0">
-            <div className="inline-flex items-center justify-center p-5 rounded-[2rem] bg-white/80 backdrop-blur-xl mb-6 shadow-xl border border-white/70 text-[#002366]">
-              <School className="w-12 h-12" />
-            </div>
-            <h1 className="text-5xl font-black text-[#002366] tracking-tight mb-2">راصد</h1>
-            <p className="text-slate-500 font-black tracking-wide text-sm">بوابة ولي الأمر</p>
-            <p className="text-[10px] font-bold text-slate-400 mt-2">هوية موحدة لعائلة راصد</p>
-          </div>
-
-          <div className="w-full flex flex-col gap-6">
-            {savedProfiles.length > 0 && (
-              <div className="w-full bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-6 shadow-xl border border-white/70 animate-in fade-in zoom-in-95 duration-500">
-                <h2 className="text-sm font-black text-[#002366] mb-4 text-center flex items-center justify-center gap-2">
-                  <Users size={16} className="text-[#002366]" /> الدخول السريع للأبناء
-                </h2>
-                <div className="grid gap-3 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
-                  {savedProfiles.map(profile => (
-                    <div
-                      key={profile.id}
-                      onClick={() => fetchStudentData(profile.centralStudentId || profile.currentRasedId || profile.id)}
-                      className="bg-indigo-50/60 hover:bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all active:scale-95 group shadow-sm"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#002366] border border-indigo-100 shadow-inner group-hover:scale-110 transition-transform">
-                          <User size={18} />
-                        </div>
-                        <div className="text-right">
-                          <p className="text-slate-800 text-sm font-black line-clamp-1">{profile.name}</p>
-                          <p className="text-slate-400 text-[10px] font-mono mt-0.5" dir="ltr">{profile.centralRasedId || profile.currentRasedId || profile.legacyRasedIds?.[0] || profile.id}</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => removeSavedProfile(profile.id, e)}
-                        className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                        title="حذف الحساب"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="w-full bg-white/85 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-xl border border-white/70">
-              <div className="text-center mb-6">
-                <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 mx-auto flex items-center justify-center text-[#002366] mb-3">
-                  <Key size={22} />
-                </div>
-                <h2 className="text-xl font-black text-[#002366]">
-                  {savedProfiles.length > 0 ? 'إضافة ابن جديد' : 'تسجيل الدخول'}
-                </h2>
-                <p className="text-[10px] font-bold text-slate-400 mt-1">أدخل كود راصد السري المستلم من المدرسة</p>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-600 px-1 text-right">كود راصد السري</label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-[#002366] z-10"><Key className="w-6 h-6" /></div>
-                    <input
-                      type="text"
-                      value={secretCode}
-                      onChange={(e) => setSecretCode(e.target.value.toUpperCase())}
-                      className="block w-full pr-14 pl-4 py-4 bg-slate-50 border border-indigo-100 rounded-2xl focus:ring-4 focus:ring-indigo-100 text-[#002366] font-black text-lg outline-none text-left placeholder:text-slate-300 uppercase"
-                      placeholder="مثال: RSD-A7X9"
-                      required
-                      dir="ltr"
-                    />
-                  </div>
-                  {error && <p className="text-rose-500 text-xs font-bold text-center mt-2 animate-in fade-in">{error}</p>}
-                </div>
-                <button type="submit" disabled={!secretCode || isLoading} className="w-full bg-[#002366] text-white py-4 rounded-2xl font-black text-base flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50">
-                  {isLoading ? <Loader2 className="animate-spin" /> : <><span>دخول آمن</span><ArrowLeft className="w-5 h-5" /></>}
-                </button>
-              </form>
-            </div>
-          </div>
-        </main>
-      </div>
+      <ParentLogin
+        secretCode={secretCode}
+        error={error}
+        isLoading={isLoading}
+        savedProfiles={savedProfiles}
+        onCodeChange={setSecretCode}
+        onSubmit={handleLogin}
+        onSelectChild={(profile) => fetchStudentData(profile.centralStudentId || profile.currentRasedId || profile.id)}
+        onRemoveChild={removeSavedProfile}
+      />
     );
   }
 
   if (showWelcomeScreen && allSubjects.length > 0) {
-    return (
-      <div className="h-[100dvh] flex flex-col items-center justify-center bg-[#f0f4f8] p-6 text-center animate-in fade-in duration-500" dir="rtl">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[40%] bg-indigo-300/20 rounded-full blur-[100px] pointer-events-none" />
-        <div className="bg-white/80 border border-white/70 p-6 rounded-full mb-8 shadow-xl animate-pulse text-[#002366]"><HeartHandshake size={72} /></div>
-        <h1 className="text-3xl font-black text-[#002366] mb-4">أهلاً بك في راصد!</h1>
-        <p className="text-slate-600 text-lg font-bold">{allSubjects[0].name}</p>
-      </div>
-    );
+    return <WelcomeScreen studentName={allSubjects[0]?.name || 'الطالب'} />;
   }
 
   const renderDashboard = () => {
@@ -624,7 +548,7 @@ function App() {
     ];
 
     return (
-      <div className="animate-in fade-in duration-500 h-full">
+      <ParentDashboard>
         <GlassLayout
           title={allSubjects[0]?.name || 'الطالب'}
           subtitle={`الصف: ${allSubjects[0]?.className || '...'}`}
@@ -729,7 +653,7 @@ function App() {
             </section>
           </div>
         </GlassLayout>
-      </div>
+      </ParentDashboard>
     );
   };
 
@@ -770,7 +694,7 @@ function App() {
     alerts.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
 
     return (
-      <div className="animate-in fade-in duration-500 h-full">
+      <ParentAlerts>
         <GlassLayout title="الإشعارات" icon={<Bell size={24} />}>
           <div className="flex p-1 bg-white/70 backdrop-blur-md border border-white/80 rounded-xl mb-6 shadow-sm">
             <button onClick={() => setActiveAlertTab('all')} className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${activeAlertTab === 'all' ? 'bg-[#002366] text-white shadow-md' : 'text-slate-500 hover:text-[#002366]'}`}>الكل</button>
@@ -799,12 +723,12 @@ function App() {
             )}
           </div>
         </GlassLayout>
-      </div>
+      </ParentAlerts>
     );
   };
 
   const renderProfile = () => (
-    <div className="animate-in fade-in duration-500 h-full">
+    <ParentProfile>
       <GlassLayout title="حسابي" icon={<User size={24} />}>
         <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] p-8 shadow-sm border border-white/60 text-center mb-6">
           <div className="w-24 h-24 bg-indigo-50 border border-indigo-100 rounded-[2rem] mx-auto flex items-center justify-center text-[#002366] mb-4 shadow-inner"><User size={40} /></div>
@@ -825,7 +749,7 @@ function App() {
           <div className="flex items-center justify-center gap-1.5"><Code size={12} className="text-[#002366]" /><span className="text-[#002366] text-[11px] font-black tracking-widest uppercase">ALZAABI MOHAMMAD</span></div>
         </div>
       </GlassLayout>
-    </div>
+    </ParentProfile>
   );
 
   return (
@@ -839,17 +763,11 @@ function App() {
         {currentTab === 'profile' && renderProfile()}
       </div>
 
-      <nav className="absolute bottom-0 left-0 right-0 z-[90] flex justify-around items-center px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 bg-white/70 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,35,102,0.06)] border-t border-white/70 transition-all">
-        <button onClick={() => { setCurrentTab('home'); setSelectedSubject(null); }} className={`flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 ${currentTab === 'home' ? 'text-[#002366] scale-110 -translate-y-1' : 'text-slate-400 hover:text-indigo-400'}`}>
-          <LayoutGrid size={22} className={currentTab === 'home' ? 'fill-indigo-50/50' : ''} /><span className="text-[9px] font-black mt-1">الرئيسية</span>
-        </button>
-        <button onClick={() => { setCurrentTab('alerts'); setSelectedSubject(null); }} className={`flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 relative ${currentTab === 'alerts' ? 'text-[#002366] scale-110 -translate-y-1' : 'text-slate-400 hover:text-indigo-400'}`}>
-          <Bell size={22} className={currentTab === 'alerts' ? 'fill-indigo-50/50' : ''} />{parentSummary.negativeCount > 0 && <span className="absolute top-1 right-3 w-2 h-2 bg-rose-500 rounded-full border border-white" />}<span className="text-[9px] font-black mt-1">إشعارات</span>
-        </button>
-        <button onClick={() => { setCurrentTab('profile'); setSelectedSubject(null); }} className={`flex flex-col items-center justify-center px-4 py-2 transition-all duration-300 ${currentTab === 'profile' ? 'text-[#002366] scale-110 -translate-y-1' : 'text-slate-400 hover:text-indigo-400'}`}>
-          <User size={22} className={currentTab === 'profile' ? 'fill-indigo-50/50' : ''} /><span className="text-[9px] font-black mt-1">حسابي</span>
-        </button>
-      </nav>
+      <BottomNavigation
+        currentTab={currentTab}
+        negativeCount={parentSummary.negativeCount}
+        onChange={(tab) => { setCurrentTab(tab); setSelectedSubject(null); }}
+      />
 
       {isMessageOpen && selectedSubject && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
