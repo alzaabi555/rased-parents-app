@@ -1,0 +1,1 @@
+export { isTeacherMessageToParent, getMessageTypeArabic, getConversationMessagesSorted, resolveParentMessageContext, readLocalParentMessages, saveLocalParentMessage, mergeParentConversation } from './parentViewUtils';
