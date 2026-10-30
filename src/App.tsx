@@ -47,6 +47,11 @@ type AlertTabId = 'all' | 'urgent';
 type SavedProfile = {
   id: string;
   name: string;
+  centralStudentId?: string;
+  currentRasedId?: string;
+  centralRasedId?: string;
+  legacyRasedIds?: string[];
+  identityStatus?: string;
 };
 
 type AnySubject = any;
@@ -778,7 +783,9 @@ function App() {
 
       if (result.status === 'success' || result.success === true) {
         const newSubjects = normalizeSubjectList(result);
-        const cachedDataStr = localStorage.getItem(`rased_data_${sanitizedId}`);
+        const cachedCentralId = localStorage.getItem('rased_parent_active_central_student_id');
+        const canonicalCache = cachedCentralId ? localStorage.getItem(`rased_parent_student_data_${cachedCentralId}`) : null;
+        const cachedDataStr = localStorage.getItem(`rased_data_${sanitizedId}`) || canonicalCache;
         const studentName = newSubjects[0]?.name || 'طالب';
 
         if (cachedDataStr) {
@@ -809,14 +816,39 @@ function App() {
           }
         }
 
+        const identity = result?.identity || newSubjects?.[0] || {};
+        const centralStudentId = String(identity?.centralStudentId || '').trim();
+        const centralRasedId = String(identity?.centralRasedId || '').trim();
+        const legacyRasedIds = Array.isArray(identity?.legacyRasedIds) ? identity.legacyRasedIds : [];
+        const canonicalProfileId = centralStudentId || sanitizedId;
         const currentProfiles = JSON.parse(localStorage.getItem('rased_saved_profiles') || '[]');
-        if (!currentProfiles.find((p: any) => p.id === sanitizedId)) {
-          const updatedProfiles = [...currentProfiles, { id: sanitizedId, name: studentName }];
-          localStorage.setItem('rased_saved_profiles', JSON.stringify(updatedProfiles));
-          setSavedProfiles(updatedProfiles);
-        }
+        const nextProfile: SavedProfile = {
+          id: canonicalProfileId,
+          name: studentName,
+          centralStudentId: centralStudentId || undefined,
+          currentRasedId: centralRasedId || sanitizedId,
+          centralRasedId: centralRasedId || undefined,
+          legacyRasedIds,
+          identityStatus: String(identity?.identityStatus || (centralStudentId ? 'central_linked' : 'experimental_unlinked')),
+        };
+        const existingIndex = currentProfiles.findIndex((p: any) =>
+          (centralStudentId && p.centralStudentId === centralStudentId) ||
+          p.id === sanitizedId || p.currentRasedId === sanitizedId ||
+          (Array.isArray(p.legacyRasedIds) && p.legacyRasedIds.includes(sanitizedId))
+        );
+        const updatedProfiles = [...currentProfiles];
+        if (existingIndex >= 0) updatedProfiles[existingIndex] = { ...updatedProfiles[existingIndex], ...nextProfile };
+        else updatedProfiles.push(nextProfile);
+        localStorage.setItem('rased_saved_profiles', JSON.stringify(updatedProfiles));
+        setSavedProfiles(updatedProfiles);
 
+        // New canonical cache. Keep writing the legacy cache during the transition.
+        if (centralStudentId) {
+          localStorage.setItem(`rased_parent_student_data_${centralStudentId}`, JSON.stringify({ identity, subjects: newSubjects }));
+          localStorage.setItem('rased_parent_active_central_student_id', centralStudentId);
+        }
         localStorage.setItem(`rased_data_${sanitizedId}`, JSON.stringify(newSubjects));
+        if (centralRasedId && centralRasedId !== sanitizedId) localStorage.setItem(`rased_data_${centralRasedId}`, JSON.stringify(newSubjects));
         setAllSubjects(newSubjects);
 
         if (selectedSubject) {
@@ -869,7 +901,7 @@ function App() {
 
   const removeSavedProfile = (idToRemove: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = savedProfiles.filter(p => p.id !== idToRemove);
+    const updated = savedProfiles.filter(p => p.id !== idToRemove && p.centralStudentId !== idToRemove && p.currentRasedId !== idToRemove);
     setSavedProfiles(updated);
     localStorage.setItem('rased_saved_profiles', JSON.stringify(updated));
     if (secretCode === idToRemove) setSecretCode('');
@@ -1074,7 +1106,7 @@ function App() {
                   {savedProfiles.map(profile => (
                     <div
                       key={profile.id}
-                      onClick={() => fetchStudentData(profile.id)}
+                      onClick={() => fetchStudentData(profile.centralStudentId || profile.currentRasedId || profile.id)}
                       className="bg-indigo-50/60 hover:bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all active:scale-95 group shadow-sm"
                     >
                       <div className="flex items-center gap-4">
