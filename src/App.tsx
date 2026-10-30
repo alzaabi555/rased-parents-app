@@ -4,7 +4,6 @@ import {
   Loader2,
   LogOut,
   Trophy,
-  ThumbsUp,
   BookOpen,
   ChevronLeft,
   MessageSquare,
@@ -15,7 +14,6 @@ import {
   User,
   RefreshCw,
   HeartHandshake,
-  Star,
   School,
   LayoutGrid,
   Bell,
@@ -41,14 +39,13 @@ import { Capacitor } from '@capacitor/core';
 
 
 import type { TabId, AlertTabId, SavedProfile } from './types/parent';
-import type { AnySubject } from './types/subject';
-import type { ParentLearningSummary } from './types/learning';
+import type { LearningGameResult, SummaryInsight } from './types/learning';
 import { GOOGLE_WEB_APP_URL } from './constants/api';
 import { GlassLayout } from './components/GlassLayout';
 import { SubjectDetails } from './components/SubjectDetails';
 import { InsightCard } from './components/InsightCard';
 import { EmptyState } from './components/EmptyState';
-import { formatDate, formatDateTime, buildLearningSummaryFromSubjects, buildParentSummary, getLatestDate, isTeacherMessageToParent, getMessageTypeArabic, getConversationMessagesSorted, resolveParentMessageContext, readLocalParentMessages, saveLocalParentMessage, mergeParentConversation } from './utils/parentViewUtils';
+import { formatDate, formatDateTime, buildParentSummary, isTeacherMessageToParent, getMessageTypeArabic, getConversationMessagesSorted, resolveParentMessageContext, readLocalParentMessages, saveLocalParentMessage, mergeParentConversation, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate } from './utils/parentViewUtils';
 
 const getOrCreateParentAccountId = (): string => {
   const existing = localStorage.getItem('rased_parent_account_id');
