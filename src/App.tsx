@@ -1162,7 +1162,7 @@ function App() {
                         </div>
                         <div className="text-right">
                           <p className="text-slate-800 text-sm font-black line-clamp-1">{profile.name}</p>
-                          <p className="text-slate-400 text-[10px] font-mono mt-0.5" dir="ltr">{profile.id}</p>
+                          <p className="text-slate-400 text-[10px] font-mono mt-0.5" dir="ltr">{profile.centralRasedId || profile.currentRasedId || profile.legacyRasedIds?.[0] || profile.id}</p>
                         </div>
                       </div>
                       <button
