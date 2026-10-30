@@ -28,13 +28,10 @@ import {
   CheckCheck,
   CircleDashed
 } from 'lucide-react';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { Capacitor } from '@capacitor/core';
 
 
 import type { TabId, AlertTabId, SavedProfile } from './types/parent';
 import type { LearningGameResult, SummaryInsight } from './types/learning';
-import { GOOGLE_WEB_APP_URL } from './constants/api';
 import { GlassLayout } from './components/GlassLayout';
 import { SubjectDetails } from './components/SubjectDetails';
 import { InsightCard } from './components/InsightCard';
@@ -46,39 +43,11 @@ import { ParentDashboard } from './components/ParentDashboard';
 import { ParentAlerts } from './components/ParentAlerts';
 import { ParentProfile } from './components/ParentProfile';
 import { formatDate, formatDateTime, buildParentSummary, isTeacherMessageToParent, getMessageTypeArabic, getConversationMessagesSorted, resolveParentMessageContext, readLocalParentMessages, saveLocalParentMessage, mergeParentConversation, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate } from './utils/parentViewUtils';
-
-const getOrCreateParentAccountId = (): string => {
-  const existing = localStorage.getItem('rased_parent_account_id');
-  if (existing?.startsWith('PAR-')) return existing;
-  const uuid = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-  const id = `PAR-${uuid}`.toUpperCase();
-  localStorage.setItem('rased_parent_account_id', id);
-  return id;
-};
-
-const linkParentStudentCloud = async (studentCode: string, displayName: string) => {
-  const parentAccountId = getOrCreateParentAccountId();
-  const response = await fetch(GOOGLE_WEB_APP_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      action: 'linkParentStudent',
-      parentAccountId,
-      deviceAccountKey: parentAccountId,
-      displayName: 'ولي الأمر',
-      relationshipType: 'guardian',
-      studentCode,
-      studentName: displayName,
-    }),
-  });
-  const result = await response.json();
-  if (result?.status === 'error' || result?.success === false) {
-    throw new Error(result?.message || 'تعذر ربط الابن بحساب ولي الأمر');
-  }
-  return { ...result, parentAccountId };
-};
+import { fetchParentStudent } from './services/parentApi';
+import { getOrCreateParentAccountId, linkParentStudent } from './services/parentAccountService';
+import { getSavedProfiles, setSavedProfiles as persistSavedProfiles, upsertSavedProfile, readStudentCache, saveStudentCache, getSavedSessionCode, saveSessionCode, clearSessionCode } from './services/parentStorageService';
+import { requestParentNotificationPermissions, notifyParentUpdates } from './services/parentNotificationService';
+import { sendParentMessage, sendParentReply } from './services/parentMessageService';
 
 function App() {
   const [secretCode, setSecretCode] = useState('');
@@ -116,33 +85,9 @@ function App() {
   }, [selectedSubject, secretCode, localConversationTick]);
 
   useEffect(() => {
-    const requestPermissions = async () => {
-      if (Capacitor.isNativePlatform()) {
-        await LocalNotifications.requestPermissions();
-      } else if ('Notification' in window) {
-        Notification.requestPermission();
-      }
-    };
-    requestPermissions();
-
-    const loadedProfiles = JSON.parse(localStorage.getItem('rased_saved_profiles') || '[]');
-    setSavedProfiles(Array.isArray(loadedProfiles) ? loadedProfiles : []);
+    requestParentNotificationPermissions().catch(error => console.warn('Notification permission:', error));
+    setSavedProfiles(getSavedProfiles());
   }, []);
-
-  const triggerDeviceNotification = async (studentName: string, newGradesCount: number, newAlertsCount: number, newRepliesCount: number) => {
-    let msg = `تحديثات للطالب ${studentName}: `;
-    if (newGradesCount > 0) msg += `(${newGradesCount}) درجات. `;
-    if (newAlertsCount > 0) msg += `(${newAlertsCount}) تنبيهات. `;
-    if (newRepliesCount > 0) msg += `(${newRepliesCount}) رسائل.`;
-
-    if (Capacitor.isNativePlatform()) {
-      await LocalNotifications.schedule({
-        notifications: [{ id: Date.now(), title: 'راصد ولي الأمر 🔔', body: msg, schedule: { at: new Date(Date.now() + 1000) }, sound: 'beep.wav' }]
-      });
-    } else if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('راصد ولي الأمر 🔔', { body: msg });
-    }
-  };
 
   const normalizeSubjectList = (result: any) => {
     const rawSubjects = Array.isArray(result.subjects)
@@ -180,25 +125,14 @@ function App() {
     }
 
     try {
-      const cacheBuster = new Date().getTime();
-      const response = await fetch(`${GOOGLE_WEB_APP_URL}?code=${sanitizedId}&t=${cacheBuster}`, {
-        method: 'GET',
-        redirect: 'follow',
-        cache: 'no-store'
-      });
-      const textData = await response.text();
-      const result = JSON.parse(textData);
+      const result = await fetchParentStudent(sanitizedId);
 
       if (result.status === 'success' || result.success === true) {
         const newSubjects = normalizeSubjectList(result);
-        const cachedCentralId = localStorage.getItem('rased_parent_active_central_student_id');
-        const canonicalCache = cachedCentralId ? localStorage.getItem(`rased_parent_student_data_${cachedCentralId}`) : null;
-        const cachedDataStr = localStorage.getItem(`rased_data_${sanitizedId}`) || canonicalCache;
+        const oldSubjects = readStudentCache(sanitizedId);
         const studentName = newSubjects[0]?.name || 'طالب';
 
-        if (cachedDataStr) {
-          const cachedParsed = JSON.parse(cachedDataStr);
-          const oldSubjects = Array.isArray(cachedParsed) ? cachedParsed : (Array.isArray(cachedParsed?.subjects) ? cachedParsed.subjects : []);
+        if (oldSubjects.length > 0) {
           let newGrades = 0;
           let newAlerts = 0;
           let newReplies = 0;
@@ -221,7 +155,7 @@ function App() {
           });
 
           if (newGrades > 0 || newAlerts > 0 || newReplies > 0) {
-            triggerDeviceNotification(studentName, newGrades, newAlerts, newReplies);
+            notifyParentUpdates(studentName, newGrades, newAlerts, newReplies).catch(error => console.warn('Notification failed:', error));
           }
         }
 
@@ -234,13 +168,13 @@ function App() {
         // Link only centrally resolved students. The experimental profile remains local and compatible.
         if (centralStudentId) {
           try {
-            await linkParentStudentCloud(centralStudentId, studentName);
+            await linkParentStudent(centralStudentId, studentName);
           } catch (linkError) {
             console.warn('ParentStudentLink pending:', linkError);
           }
         }
 
-        const currentProfiles = JSON.parse(localStorage.getItem('rased_saved_profiles') || '[]');
+        const currentProfiles = getSavedProfiles();
         const canonicalProfileId = centralStudentId || sanitizedId;
         const nextProfile: SavedProfile = {
           id: canonicalProfileId,
@@ -252,23 +186,10 @@ function App() {
           identityStatus: String(identity?.identityStatus || (centralStudentId ? 'central_linked' : 'experimental_unlinked')),
           parentAccountId,
         };
-        const existingIndex = currentProfiles.findIndex((profile: any) =>
-          (centralStudentId && profile.centralStudentId === centralStudentId) ||
-          profile.id === sanitizedId || profile.currentRasedId === sanitizedId ||
-          (Array.isArray(profile.legacyRasedIds) && profile.legacyRasedIds.includes(sanitizedId))
-        );
-        const updatedProfiles = [...currentProfiles];
-        if (existingIndex >= 0) updatedProfiles[existingIndex] = { ...updatedProfiles[existingIndex], ...nextProfile };
-        else updatedProfiles.push(nextProfile);
-        localStorage.setItem('rased_saved_profiles', JSON.stringify(updatedProfiles));
+        const updatedProfiles = upsertSavedProfile(currentProfiles, nextProfile, sanitizedId);
         setSavedProfiles(updatedProfiles);
 
-        if (centralStudentId) {
-          localStorage.setItem(`rased_parent_student_data_${centralStudentId}`, JSON.stringify({ identity, subjects: newSubjects }));
-          localStorage.setItem('rased_parent_active_central_student_id', centralStudentId);
-        }
-        localStorage.setItem(`rased_data_${sanitizedId}`, JSON.stringify(newSubjects));
-        if (centralRasedId && centralRasedId !== sanitizedId) localStorage.setItem(`rased_data_${centralRasedId}`, JSON.stringify(newSubjects));
+        saveStudentCache(sanitizedId, identity, newSubjects);
         setAllSubjects(newSubjects);
 
         if (selectedSubject) {
@@ -276,7 +197,7 @@ function App() {
           if (updatedSelected) setSelectedSubject(updatedSelected);
         }
 
-        localStorage.setItem('rased_parent_secret_code', sanitizedId);
+        saveSessionCode(sanitizedId);
         setSecretCode(sanitizedId);
 
         if (!isManualRefresh && !isSilent) {
@@ -297,7 +218,7 @@ function App() {
   };
 
   useEffect(() => {
-    const savedID = localStorage.getItem('rased_parent_secret_code');
+    const savedID = getSavedSessionCode();
     if (savedID) {
       setSecretCode(savedID);
       fetchStudentData(savedID);
@@ -312,7 +233,7 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('rased_parent_secret_code');
+    clearSessionCode();
     setAllSubjects([]);
     setSelectedSubject(null);
     setSecretCode('');
@@ -323,7 +244,7 @@ function App() {
     e.stopPropagation();
     const updated = savedProfiles.filter(p => p.id !== idToRemove && p.centralStudentId !== idToRemove && p.currentRasedId !== idToRemove);
     setSavedProfiles(updated);
-    localStorage.setItem('rased_saved_profiles', JSON.stringify(updated));
+    persistSavedProfiles(updated);
     if (secretCode === idToRemove) setSecretCode('');
   };
 
@@ -397,14 +318,7 @@ function App() {
     };
 
     try {
-      const response = await fetch(GOOGLE_WEB_APP_URL, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
+      const result = await sendParentReply(payload);
 
       if (result.status === 'success' || result.success === true) {
         setTeacherReplyText('');
@@ -480,13 +394,7 @@ function App() {
     };
 
     try {
-      const response = await fetch(GOOGLE_WEB_APP_URL, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json();
+      const result = await sendParentMessage(payload);
       if (result.status === 'success' || result.success === true) {
         setMessageText('');
         fetchStudentData(secretCode, false, true);
