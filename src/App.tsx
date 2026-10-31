@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   LogOut,
   Trophy,
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 
-import type { TabId, AlertTabId, SavedProfile } from './types/parent';
+import type { TabId, AlertTabId } from './types/parent';
 import type { LearningGameResult, SummaryInsight } from './types/learning';
 import { GlassLayout } from './components/GlassLayout';
 import { SubjectDetails } from './components/SubjectDetails';
@@ -37,199 +37,30 @@ import { ParentDashboard } from './components/ParentDashboard';
 import { ParentAlerts } from './components/ParentAlerts';
 import { ParentProfile } from './components/ParentProfile';
 import { formatDate, buildParentSummary, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate, isTeacherMessageToParent, getMessageTypeArabic } from './utils/parentViewUtils';
-import { fetchParentStudent } from './services/parentApi';
-import { getOrCreateParentAccountId, linkParentStudent } from './services/parentAccountService';
-import { getSavedProfiles, setSavedProfiles as persistSavedProfiles, upsertSavedProfile, readStudentCache, saveStudentCache, getSavedSessionCode, saveSessionCode, clearSessionCode } from './services/parentStorageService';
-import { requestParentNotificationPermissions, notifyParentUpdates } from './services/parentNotificationService';
 import { useParentMessages } from './hooks/useParentMessages';
 import { ParentMessagesModal } from './components/messages/ParentMessagesModal';
+import { useParentStudent } from './hooks/useParentStudent';
+import { useParentSession } from './hooks/useParentSession';
+import { useSavedChildren } from './hooks/useSavedChildren';
+import { useParentNotifications } from './hooks/useParentNotifications';
 
 function App() {
-  const [secretCode, setSecretCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [allSubjects, setAllSubjects] = useState<any[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<any>(null);
-
-  const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
   const [currentTab, setCurrentTab] = useState<TabId>('home');
   const [activeAlertTab, setActiveAlertTab] = useState<AlertTabId>('all');
-
-
-  const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
-
+  const { savedProfiles, saveProfile, removeProfile } = useSavedChildren();
+  const { notifyUpdates } = useParentNotifications();
+  const student = useParentStudent({ saveProfile, notifyUpdates });
+  const { clearSession } = useParentSession({ loadStudent: student.loadStudent });
+  const {
+    secretCode, setSecretCode, allSubjects, selectedSubject, setSelectedSubject,
+    isLoading, isRefreshing, error, showWelcomeScreen, loadStudent, clearStudent,
+  } = student;
   const parentSummary = useMemo(() => buildParentSummary(allSubjects), [allSubjects]);
-
-
-  useEffect(() => {
-    requestParentNotificationPermissions().catch(error => console.warn('Notification permission:', error));
-    setSavedProfiles(getSavedProfiles());
-  }, []);
-
-  const normalizeSubjectList = (result: any) => {
-    const rawSubjects = Array.isArray(result.subjects)
-      ? result.subjects
-      : Array.isArray(result.data?.subjects)
-        ? result.data.subjects
-        : Array.isArray(result.data)
-          ? result.data
-          : [];
-
-    const studentSummary = result.gameResultsSummary || result.learningSummary || result.data?.gameResultsSummary || result.data?.learningSummary;
-
-    if (studentSummary && rawSubjects.length > 0) {
-      return rawSubjects.map((subject: any, index: number) => index === 0
-        ? { ...subject, gameResultsSummary: studentSummary }
-        : subject
-      );
-    }
-
-    return rawSubjects;
-  };
-
-  const fetchStudentData = async (id: string, isManualRefresh = false, isSilent = false) => {
-    if (!id.trim()) {
-      setError('الرجاء إدخال الكود السري للطالب.');
-      return;
-    }
-
-    const sanitizedId = id.trim().toUpperCase();
-
-    if (!isSilent) {
-      if (isManualRefresh) setIsRefreshing(true);
-      else setIsLoading(true);
-      setError('');
-    }
-
-    try {
-      const result = await fetchParentStudent(sanitizedId);
-
-      if (result.status === 'success' || result.success === true) {
-        const newSubjects = normalizeSubjectList(result);
-        const oldSubjects = readStudentCache(sanitizedId);
-        const studentName = newSubjects[0]?.name || 'طالب';
-
-        if (oldSubjects.length > 0) {
-          let newGrades = 0;
-          let newAlerts = 0;
-          let newReplies = 0;
-
-          newSubjects.forEach((newSub: any, idx: number) => {
-            const oldSub = oldSubjects[idx];
-            if (oldSub) {
-              const oldG = oldSub.grades?.length || 0;
-              const newG = newSub.grades?.length || 0;
-              if (newG > oldG) newGrades += (newG - oldG);
-
-              const oldB = oldSub.behaviors?.length || 0;
-              const newB = newSub.behaviors?.length || 0;
-              if (newB > oldB) newAlerts += (newB - oldB);
-
-              const oldParentMessages = oldSub.parentMessages?.filter((m: any) => m.teacherReply)?.length || oldSub.teacherReplies?.length || 0;
-              const newParentMessages = newSub.parentMessages?.filter((m: any) => m.teacherReply)?.length || newSub.teacherReplies?.length || 0;
-              if (newParentMessages > oldParentMessages) newReplies += (newParentMessages - oldParentMessages);
-            }
-          });
-
-          if (newGrades > 0 || newAlerts > 0 || newReplies > 0) {
-            notifyParentUpdates(studentName, newGrades, newAlerts, newReplies).catch(error => console.warn('Notification failed:', error));
-          }
-        }
-
-        const identity = result?.identity || newSubjects?.[0] || {};
-        const centralStudentId = String(identity?.centralStudentId || '').trim();
-        const centralRasedId = String(identity?.centralRasedId || '').trim();
-        const legacyRasedIds = Array.isArray(identity?.legacyRasedIds) ? identity.legacyRasedIds : [];
-        const parentAccountId = getOrCreateParentAccountId();
-
-        // Link only centrally resolved students. The experimental profile remains local and compatible.
-        if (centralStudentId) {
-          try {
-            await linkParentStudent(centralStudentId, studentName);
-          } catch (linkError) {
-            console.warn('ParentStudentLink pending:', linkError);
-          }
-        }
-
-        const currentProfiles = getSavedProfiles();
-        const canonicalProfileId = centralStudentId || sanitizedId;
-        const nextProfile: SavedProfile = {
-          id: canonicalProfileId,
-          name: studentName,
-          centralStudentId: centralStudentId || undefined,
-          currentRasedId: centralRasedId || sanitizedId,
-          centralRasedId: centralRasedId || undefined,
-          legacyRasedIds,
-          identityStatus: String(identity?.identityStatus || (centralStudentId ? 'central_linked' : 'experimental_unlinked')),
-          parentAccountId,
-        };
-        const updatedProfiles = upsertSavedProfile(currentProfiles, nextProfile, sanitizedId);
-        setSavedProfiles(updatedProfiles);
-
-        saveStudentCache(sanitizedId, identity, newSubjects);
-        setAllSubjects(newSubjects);
-
-        if (selectedSubject) {
-          const updatedSelected = newSubjects.find((s: any) => s.subject === selectedSubject.subject && s.schoolName === selectedSubject.schoolName);
-          if (updatedSelected) setSelectedSubject(updatedSelected);
-        }
-
-        saveSessionCode(sanitizedId);
-        setSecretCode(sanitizedId);
-
-        if (!isManualRefresh && !isSilent) {
-          setShowWelcomeScreen(true);
-          setTimeout(() => setShowWelcomeScreen(false), 2200);
-        }
-      } else if (!isSilent) {
-        setError('لم يتم العثور على بيانات، تأكد من صحة كود راصد السري.');
-      }
-    } catch (err) {
-      if (!isSilent) setError('خطأ في الاتصال بالسحابة.');
-    } finally {
-      if (!isSilent) {
-        setIsLoading(false);
-        setIsRefreshing(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    const savedID = getSavedSessionCode();
-    if (savedID) {
-      setSecretCode(savedID);
-      fetchStudentData(savedID);
-      const silentInterval = setInterval(() => fetchStudentData(savedID, false, true), 60000);
-      return () => clearInterval(silentInterval);
-    }
-  }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchStudentData(secretCode);
-  };
-
-  const handleLogout = () => {
-    clearSessionCode();
-    setAllSubjects([]);
-    setSelectedSubject(null);
-    setSecretCode('');
-    setCurrentTab('home');
-  };
-
-  const removeSavedProfile = (idToRemove: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = savedProfiles.filter(p => p.id !== idToRemove && p.centralStudentId !== idToRemove && p.currentRasedId !== idToRemove);
-    setSavedProfiles(updated);
-    persistSavedProfiles(updated);
-    if (secretCode === idToRemove) setSecretCode('');
-  };
-
+  const handleLogin = (event: React.FormEvent) => { event.preventDefault(); void loadStudent(secretCode); };
+  const handleLogout = () => { clearSession(); clearStudent(); setCurrentTab('home'); };
+  const removeSavedProfile = (id: string, event: React.MouseEvent) => { event.stopPropagation(); removeProfile(id); if (secretCode === id) setSecretCode(''); };
   const messages = useParentMessages({
-    selectedSubject,
-    secretCode,
-    refresh: () => fetchStudentData(secretCode, false, true),
+    selectedSubject, secretCode, refresh: () => loadStudent(secretCode, false, true),
   });
 
   if (!allSubjects.length && !showWelcomeScreen) {
@@ -241,7 +72,7 @@ function App() {
         savedProfiles={savedProfiles}
         onCodeChange={setSecretCode}
         onSubmit={handleLogin}
-        onSelectChild={(profile) => fetchStudentData(profile.centralStudentId || profile.currentRasedId || profile.id)}
+        onSelectChild={(profile) => loadStudent(profile.centralStudentId || profile.currentRasedId || profile.id)}
         onRemoveChild={removeSavedProfile}
       />
     );
@@ -280,7 +111,7 @@ function App() {
           subtitle={`الصف: ${allSubjects[0]?.className || '...'}`}
           icon={<User size={24} />}
           rightAction={
-            <button onClick={() => fetchStudentData(secretCode, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-white/70 border border-indigo-100 text-[#002366] active:scale-95 shadow-sm hover:bg-white transition-colors">
+            <button onClick={() => loadStudent(secretCode, true)} disabled={isRefreshing} className="p-2.5 rounded-xl bg-white/70 border border-indigo-100 text-[#002366] active:scale-95 shadow-sm hover:bg-white transition-colors">
               <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
           }
