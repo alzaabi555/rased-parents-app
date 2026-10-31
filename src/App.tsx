@@ -10,7 +10,6 @@ import { ParentProfile } from './components/ParentProfile';
 import { ParentSubjects } from './components/subjects/ParentSubjects';
 import { buildParentSummary } from './utils/parentViewUtils';
 import { useParentMessages } from './hooks/useParentMessages';
-import { ParentMessagesModal } from './components/messages/ParentMessagesModal';
 import { useParentStudent } from './hooks/useParentStudent';
 import { useParentSession } from './hooks/useParentSession';
 import { useSavedChildren } from './hooks/useSavedChildren';
@@ -97,7 +96,7 @@ function App() {
             <SubjectDetails
               subjectData={selectedSubject}
               onBack={() => setSelectedSubject(null)}
-              onOpenMessage={() => messages.setOpen(true)}
+              messages={messages}
             />
           ) : (
             <ParentSubjects allSubjects={allSubjects} onSelectSubject={setSelectedSubject} />
@@ -130,23 +129,7 @@ function App() {
         />
       )}
 
-      <ParentMessagesModal
-        open={messages.open}
-        subject={selectedSubject}
-        items={messages.items}
-        messageText={messages.messageText}
-        replyText={messages.replyText}
-        replyingTo={messages.replyingTo}
-        isSending={messages.isSending}
-        isSendingReply={messages.isSendingReply}
-        onClose={() => messages.setOpen(false)}
-        onMessageChange={messages.setMessageText}
-        onReplyTextChange={messages.setReplyText}
-        onStartReply={item => { messages.setReplyingTo(item); messages.setReplyText(''); }}
-        onCancelReply={() => { messages.setReplyingTo(null); messages.setReplyText(''); }}
-        onSend={messages.send}
-        onSendReply={messages.sendReply}
-      />
+
     </div>
   );
 }
