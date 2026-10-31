@@ -36,7 +36,7 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { ParentDashboard } from './components/ParentDashboard';
 import { ParentAlerts } from './components/ParentAlerts';
 import { ParentProfile } from './components/ParentProfile';
-import { formatDate, formatDateTime, buildParentSummary, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate } from './utils/parentViewUtils';
+import { formatDate, buildParentSummary, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate, isTeacherMessageToParent, getMessageTypeArabic } from './utils/parentViewUtils';
 import { fetchParentStudent } from './services/parentApi';
 import { getOrCreateParentAccountId, linkParentStudent } from './services/parentAccountService';
 import { getSavedProfiles, setSavedProfiles as persistSavedProfiles, upsertSavedProfile, readStudentCache, saveStudentCache, getSavedSessionCode, saveSessionCode, clearSessionCode } from './services/parentStorageService';
