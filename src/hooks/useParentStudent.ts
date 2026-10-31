@@ -47,12 +47,17 @@ export const useParentStudent = ({saveProfile,notifyUpdates}:Args) => {
       if(old.length){const delta=compareUpdates(old,subjects);if(delta.grades||delta.alerts||delta.replies)await notifyUpdates(name,delta.grades,delta.alerts,delta.replies);}
       let parentAccountId=getOrCreateParentAccountId();
       const centralStudentId=String(identity.centralStudentId||'').trim();
-      if(centralStudentId){try{const link=await linkParentStudent(centralStudentId,name);parentAccountId=link.canonicalParentAccountId||link.parentAccountId||parentAccountId;}catch(e){console.warn('Family link pending:',e);}}
+      if(centralStudentId){try{const link = await linkParentStudent(centralStudentId, name);
+        const familyLink = link as typeof link & { canonicalParentAccountId?: string };
+        parentAccountId = familyLink.canonicalParentAccountId || familyLink.parentAccountId || parentAccountId;}catch(e){console.warn('Family link pending:',e);}}
       const centralRasedId=String(identity.centralRasedId||'').trim();
       saveProfile({id:centralStudentId||code,name,centralStudentId:centralStudentId||undefined,currentRasedId:centralRasedId||code,centralRasedId:centralRasedId||undefined,legacyRasedIds:Array.isArray(identity.legacyRasedIds)?identity.legacyRasedIds:[],identityStatus:String(identity.identityStatus||(centralStudentId?'central_linked':'experimental_unlinked')),parentAccountId},code);
       saveStudentCache(code,identity,subjects);
       setAllSubjects(subjects);
-      setSelectedSubject(current=>current?subjects.find((subject:any)=>subject.subject===current.subject&&subject.schoolName===current.schoolName)||null:null);
+      setSelectedSubject((current: any) => current
+        ? subjects.find((subject: any) => subject.subject === current.subject && subject.schoolName === current.schoolName) || null
+        : null
+      );
       saveSessionCode(code);setSecretCode(code);
       if(!manual&&!silent){setShowWelcomeScreen(true);window.setTimeout(()=>setShowWelcomeScreen(false),2200);}
     }catch(e){if(!silent)setError(e instanceof Error?e.message:'خطأ في الاتصال بالسحابة.');}
