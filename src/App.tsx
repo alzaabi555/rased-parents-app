@@ -6,9 +6,6 @@ import {
   BookOpen,
   ChevronLeft,
   MessageSquare,
-  MessagesSquare,
-  SendHorizontal,
-  X,
   Code,
   User,
   RefreshCw,
@@ -25,7 +22,6 @@ import {
   MailCheck,
   Award,
   Clock3,
-  CheckCheck,
   CircleDashed
 } from 'lucide-react';
 
@@ -42,12 +38,13 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { ParentDashboard } from './components/ParentDashboard';
 import { ParentAlerts } from './components/ParentAlerts';
 import { ParentProfile } from './components/ParentProfile';
-import { formatDate, formatDateTime, buildParentSummary, isTeacherMessageToParent, getMessageTypeArabic, getConversationMessagesSorted, resolveParentMessageContext, readLocalParentMessages, saveLocalParentMessage, mergeParentConversation, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate } from './utils/parentViewUtils';
+import { formatDate, formatDateTime, buildParentSummary, safeList, getSubjectGameResults, getGameScorePercent, getGameTitle, getGameDate } from './utils/parentViewUtils';
 import { fetchParentStudent } from './services/parentApi';
 import { getOrCreateParentAccountId, linkParentStudent } from './services/parentAccountService';
 import { getSavedProfiles, setSavedProfiles as persistSavedProfiles, upsertSavedProfile, readStudentCache, saveStudentCache, getSavedSessionCode, saveSessionCode, clearSessionCode } from './services/parentStorageService';
 import { requestParentNotificationPermissions, notifyParentUpdates } from './services/parentNotificationService';
-import { sendParentMessage, sendParentReply } from './services/parentMessageService';
+import { useParentMessages } from './hooks/useParentMessages';
+import { ParentMessagesModal } from './components/messages/ParentMessagesModal';
 
 function App() {
   const [secretCode, setSecretCode] = useState('');
@@ -61,28 +58,11 @@ function App() {
   const [currentTab, setCurrentTab] = useState<TabId>('home');
   const [activeAlertTab, setActiveAlertTab] = useState<AlertTabId>('all');
 
-  const [isMessageOpen, setIsMessageOpen] = useState(false);
-  const [messageText, setMessageText] = useState('');
-  const [isSendingMsg, setIsSendingMsg] = useState(false);
-  const [replyingToTeacherMessage, setReplyingToTeacherMessage] = useState<any>(null);
-  const [teacherReplyText, setTeacherReplyText] = useState('');
-  const [isSendingTeacherReply, setIsSendingTeacherReply] = useState(false);
-  const [localConversationTick, setLocalConversationTick] = useState(0);
 
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
 
   const parentSummary = useMemo(() => buildParentSummary(allSubjects), [allSubjects]);
 
-  const activeConversationItems = useMemo(() => {
-    if (!selectedSubject) return [];
-    const rasedId = String(secretCode || selectedSubject.rasedId || selectedSubject.parentCode || '').trim().toUpperCase();
-    const schoolName = selectedSubject.schoolName || 'غير محدد';
-    const subject = selectedSubject.subject || 'غير محدد';
-    return mergeParentConversation(
-      Array.isArray(selectedSubject.parentMessages) ? selectedSubject.parentMessages : [],
-      readLocalParentMessages(rasedId, schoolName, subject)
-    );
-  }, [selectedSubject, secretCode, localConversationTick]);
 
   useEffect(() => {
     requestParentNotificationPermissions().catch(error => console.warn('Notification permission:', error));
@@ -248,165 +228,11 @@ function App() {
     if (secretCode === idToRemove) setSecretCode('');
   };
 
-  const handleSendReplyToTeacherMessage = async () => {
-    if (!teacherReplyText.trim() || !selectedSubject || !replyingToTeacherMessage) return;
-
-    setIsSendingTeacherReply(true);
-
-    const rasedId = String(
-      secretCode ||
-      selectedSubject.rasedId ||
-      selectedSubject.parentCode ||
-      ''
-    ).trim().toUpperCase();
-
-    const context = resolveParentMessageContext(selectedSubject, replyingToTeacherMessage);
-    const { schoolName, subject, className, grade, semester } = context;
-    if (!schoolName || !subject) {
-      alert('تعذر تحديد المدرسة أو المادة لهذه المحادثة. حدّث بيانات الطالب ثم أعد المحاولة.');
-      setIsSendingTeacherReply(false);
-      return;
-    }
-    const text = teacherReplyText.trim();
-    const now = new Date().toISOString();
-
-    const localMessage = {
-      localId: `local_reply_${Date.now()}`,
-      date: now,
-      rasedId,
-      civilID: rasedId,
-      parentCode: rasedId,
-      studentName: selectedSubject.name,
-      schoolName,
-      subject,
-      message: text,
-      status: 'pending',
-      teacherReply: '',
-      replyDate: '',
-      teacherName: '',
-      sender: 'parent',
-      direction: 'parent_to_teacher',
-      messageType: 'teacher_message_reply',
-      replyToRow: replyingToTeacherMessage.rowNumber || '',
-      replyToMessage: replyingToTeacherMessage.message || '',
-      semester,
-      className,
-      grade
-    };
-
-    saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
-    setLocalConversationTick(prev => prev + 1);
-
-    const payload = {
-      action: 'sendMessage',
-      civilID: rasedId,
-      rasedId,
-      parentCode: rasedId,
-      studentName: selectedSubject.name,
-      schoolName,
-      subject,
-      message: text,
-      messageEncoded: encodeURIComponent(text),
-      sender: 'parent',
-      direction: 'parent_to_teacher',
-      messageType: 'teacher_message_reply',
-      replyToRow: replyingToTeacherMessage.rowNumber || '',
-      replyToMessage: replyingToTeacherMessage.message || '',
-      semester,
-      className,
-      grade
-    };
-
-    try {
-      const result = await sendParentReply(payload);
-
-      if (result.status === 'success' || result.success === true) {
-        setTeacherReplyText('');
-        setReplyingToTeacherMessage(null);
-        await fetchStudentData(secretCode, false, true);
-        setTimeout(() => fetchStudentData(secretCode, false, true), 1200);
-      } else {
-        alert(result.message || 'تعذر إرسال الرد للمعلم.');
-      }
-    } catch (error) {
-      alert('تم حفظ الرد محليًا، لكن تعذر إرساله للسحابة الآن.');
-    } finally {
-      setIsSendingTeacherReply(false);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedSubject) return;
-    setIsSendingMsg(true);
-
-    const rasedId = String(secretCode || selectedSubject.rasedId || selectedSubject.parentCode || '').trim().toUpperCase();
-    const context = resolveParentMessageContext(selectedSubject);
-    const { schoolName, subject, className, grade, semester } = context;
-    if (!schoolName || !subject) {
-      alert('تعذر تحديد المدرسة أو المادة. حدّث بيانات الطالب ثم أعد المحاولة.');
-      setIsSendingMsg(false);
-      return;
-    }
-    const text = messageText.trim();
-    const now = new Date().toISOString();
-
-    const localMessage = {
-      localId: `local_${Date.now()}`,
-      date: now,
-      rasedId,
-      civilID: rasedId,
-      parentCode: rasedId,
-      studentName: selectedSubject.name,
-      schoolName,
-      subject,
-      message: text,
-      status: 'pending',
-      teacherReply: '',
-      replyDate: '',
-      teacherName: '',
-      sender: 'parent',
-      direction: 'parent_to_teacher',
-      messageType: 'general',
-      semester,
-      className,
-      grade
-    };
-
-    saveLocalParentMessage(rasedId, schoolName, subject, localMessage);
-    setLocalConversationTick(prev => prev + 1);
-
-    const payload = {
-      action: 'sendMessage',
-      civilID: rasedId,
-      rasedId,
-      parentCode: rasedId,
-      studentName: selectedSubject.name,
-      schoolName,
-      subject,
-      message: text,
-      messageEncoded: encodeURIComponent(text),
-      sender: 'parent',
-      direction: 'parent_to_teacher',
-      messageType: 'general',
-      semester,
-      className,
-      grade
-    };
-
-    try {
-      const result = await sendParentMessage(payload);
-      if (result.status === 'success' || result.success === true) {
-        setMessageText('');
-        fetchStudentData(secretCode, false, true);
-      } else {
-        alert(result.message || 'تعذر إرسال الرسالة.');
-      }
-    } catch (error) {
-      alert('تم حفظ الرسالة محليًا، لكن تعذر إرسالها للسحابة الآن.');
-    } finally {
-      setIsSendingMsg(false);
-    }
-  };
+  const messages = useParentMessages({
+    selectedSubject,
+    secretCode,
+    refresh: () => fetchStudentData(secretCode, false, true),
+  });
 
   if (!allSubjects.length && !showWelcomeScreen) {
     return (
@@ -660,7 +486,7 @@ function App() {
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[50%] bg-blue-300/20 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="absolute inset-0 z-10">
-        {currentTab === 'home' && (!selectedSubject ? renderDashboard() : <SubjectDetails subjectData={selectedSubject} onBack={() => setSelectedSubject(null)} onOpenMessage={() => setIsMessageOpen(true)} />)}
+        {currentTab === 'home' && (!selectedSubject ? renderDashboard() : <SubjectDetails subjectData={selectedSubject} onBack={() => setSelectedSubject(null)} onOpenMessage={() => messages.setOpen(true)} />)}
         {currentTab === 'alerts' && renderNotifications()}
         {currentTab === 'profile' && renderProfile()}
       </div>
@@ -671,215 +497,23 @@ function App() {
         onChange={(tab) => { setCurrentTab(tab); setSelectedSubject(null); }}
       />
 
-      {isMessageOpen && selectedSubject && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
-          <div className="bg-white/95 backdrop-blur-xl w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 shadow-2xl border border-white/50 animate-in slide-in-from-bottom-8 sm:zoom-in-95 flex flex-col max-h-[85vh]">
-            <div className="flex justify-between items-center mb-4 shrink-0">
-              <div>
-                <h3 className="font-black text-[#002366] flex items-center gap-2 text-lg">
-                  <MessagesSquare size={22} /> صندوق رسائل المادة
-                </h3>
-                <p className="text-[10px] font-bold text-slate-400 mt-1">
-                  مادة {selectedSubject.subject} - مراسلة المعلم والرد على رسائله
-                </p>
-              </div>
-              <button onClick={() => setIsMessageOpen(false)} className="p-2 bg-indigo-50 text-indigo-400 rounded-full hover:bg-indigo-100 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar mb-4 space-y-3 pr-1">
-              {activeConversationItems.length === 0 ? (
-                <div className="text-center text-slate-400 text-xs py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  لا توجد رسائل سابقة. اكتب استفسارك وسيظهر هنا محفوظًا مع رد المعلم.
-                </div>
-              ) : (
-                getConversationMessagesSorted(activeConversationItems).map((item: any, idx: number) => {
-                  const fromTeacher = isTeacherMessageToParent(item);
-                  const messageTypeLabel = getMessageTypeArabic(item.messageType);
-
-                  return (
-                    <div key={item.rowNumber || item.localId || idx} className="space-y-2">
-                      <div
-                        className={`border p-4 rounded-2xl shadow-sm ${
-                          fromTeacher
-                            ? 'bg-emerald-50/80 border-emerald-100 rounded-tl-sm'
-                            : 'bg-white border-indigo-100 rounded-tr-sm'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-2 gap-2">
-                          <div className="min-w-0">
-                            <span
-                              className={`text-xs font-black flex items-center gap-1 ${
-                                fromTeacher ? 'text-emerald-700' : 'text-[#002366]'
-                              }`}
-                            >
-                              {fromTeacher ? (
-                                <>
-                                  <MailCheck size={14} />
-                                  رسالة من المعلم
-                                </>
-                              ) : (
-                                <>
-                                  <MessagesSquare size={14} />
-                                  رسالتك للمعلم
-                                </>
-                              )}
-                            </span>
-
-                            {fromTeacher && (
-                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                <span className="text-[9px] font-black bg-white/80 border border-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg">
-                                  {messageTypeLabel}
-                                </span>
-                                {item.teacherName && (
-                                  <span className="text-[9px] font-bold text-emerald-700/80">
-                                    {item.teacherName}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <span className="text-[9px] font-bold text-slate-400 bg-white/80 px-2 py-0.5 rounded-md shrink-0 border border-slate-100">
-                            {formatDateTime(item.date)}
-                          </span>
-                        </div>
-
-                        {item.replyToMessage && (
-                          <div className="mb-2 rounded-xl bg-indigo-50/70 border border-indigo-100 p-2.5">
-                            <p className="text-[9px] font-black text-[#002366] mb-1">رد على رسالة المعلم</p>
-                            <p className="text-[10px] font-bold text-slate-500 leading-5 line-clamp-3">{item.replyToMessage}</p>
-                          </div>
-                        )}
-                        <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
-                          {item.message}
-                        </p>
-
-                        {!fromTeacher && (
-                          <div className="mt-2 flex justify-end">
-                            {item.status === 'replied' || item.teacherReply ? (
-                              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                                <CheckCheck size={12} />
-                                تم الرد
-                              </span>
-                            ) : item.status === 'pending' ? (
-                              <span className="text-[10px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                                <CircleDashed size={12} />
-                                محفوظ محليًا
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg flex items-center gap-1">
-                                <CircleDashed size={12} />
-                                بانتظار الرد
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {fromTeacher && (
-                          <div className="mt-3 border-t border-emerald-100 pt-3">
-                            {replyingToTeacherMessage === item ? (
-                              <div className="space-y-3">
-                                <textarea
-                                  value={teacherReplyText}
-                                  onChange={(e) => setTeacherReplyText(e.target.value)}
-                                  placeholder="اكتب ردك على رسالة المعلم..."
-                                  className="w-full h-24 bg-white border border-emerald-100 rounded-2xl p-3 text-sm font-bold resize-none outline-none focus:border-emerald-500 text-slate-800 placeholder:text-slate-300"
-                                />
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setReplyingToTeacherMessage(null);
-                                      setTeacherReplyText('');
-                                    }}
-                                    className="flex-1 py-3 rounded-2xl bg-white border border-slate-100 text-slate-500 text-xs font-black active:scale-95"
-                                  >
-                                    إلغاء
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={handleSendReplyToTeacherMessage}
-                                    disabled={!teacherReplyText.trim() || isSendingTeacherReply}
-                                    className="flex-1 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-black active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                                  >
-                                    {isSendingTeacherReply ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <>
-                                        <SendHorizontal size={16} />
-                                        إرسال الرد
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReplyingToTeacherMessage(item);
-                                  setTeacherReplyText('');
-                                }}
-                                className="w-full py-3 rounded-2xl bg-white border border-emerald-100 text-emerald-700 text-xs font-black flex items-center justify-center gap-2 active:scale-95 hover:bg-emerald-100 transition-all"
-                              >
-                                <MessageSquare size={16} />
-                                الرد على المعلم
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {!fromTeacher && item.teacherReply && (
-                        <div className="mr-6 bg-indigo-50/80 border border-indigo-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">
-                          <div className="flex justify-between items-start mb-2 gap-2">
-                            <span className="text-xs font-black text-[#002366]">
-                              {item.teacherName || 'المعلم'}
-                            </span>
-                            <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md shrink-0">
-                              {formatDateTime(item.replyDate)}
-                            </span>
-                          </div>
-                          <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
-                            {item.teacherReply}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="shrink-0 pt-3 border-t border-indigo-50">
-              <textarea
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                placeholder="اكتب استفسارك هنا..."
-                className="w-full h-24 bg-white/50 border border-indigo-100 rounded-[1.5rem] p-4 text-sm font-bold resize-none outline-none focus:border-[#002366] focus:bg-white mb-3 transition-all text-slate-800 placeholder:text-indigo-200"
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={!messageText.trim() || isSendingMsg}
-                className="w-full relative overflow-hidden bg-gradient-to-r from-[#002366] via-[#1e40af] to-[#2563eb] text-white py-4 rounded-[1.5rem] font-black flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 transition-all shadow-xl shadow-indigo-900/20 group"
-              >
-                <span className="absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-                {isSendingMsg ? (
-                  <Loader2 className="animate-spin relative z-10" />
-                ) : (
-                  <>
-                    <span className="relative z-10">إرسال استفسار جديد</span>
-                    <span className="relative z-10 w-9 h-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shadow-inner">
-                      <SendHorizontal size={18} />
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      <ParentMessagesModal
+        open={messages.open}
+        subject={selectedSubject}
+        items={messages.items}
+        messageText={messages.messageText}
+        replyText={messages.replyText}
+        replyingTo={messages.replyingTo}
+        isSending={messages.isSending}
+        isSendingReply={messages.isSendingReply}
+        onClose={() => messages.setOpen(false)}
+        onMessageChange={messages.setMessageText}
+        onReplyTextChange={messages.setReplyText}
+        onStartReply={(item) => { messages.setReplyingTo(item); messages.setReplyText(''); }}
+        onCancelReply={() => { messages.setReplyingTo(null); messages.setReplyText(''); }}
+        onSend={messages.send}
+        onSendReply={messages.sendReply}
+      />
       )}
     </div>
   );

@@ -1,0 +1,16 @@
+import { useMemo, useState } from 'react';
+import type { ParentConversationMessage } from '../types/messages';
+import { mergeParentConversation, readLocalParentMessages, resolveParentMessageContext, saveLocalParentMessage } from '../utils/parentViewUtils';
+import { sendParentMessage, sendParentReply } from '../services/parentMessageService';
+interface Args { selectedSubject:any; secretCode:string; refresh:()=>Promise<void>|void; }
+export const useParentMessages=({selectedSubject,secretCode,refresh}:Args)=>{
+ const [open,setOpen]=useState(false),[messageText,setMessageText]=useState(''),[replyText,setReplyText]=useState(''),[replyingTo,setReplyingTo]=useState<ParentConversationMessage|null>(null),[isSending,setIsSending]=useState(false),[isSendingReply,setIsSendingReply]=useState(false),[tick,setTick]=useState(0);
+ const rasedId=String(secretCode||selectedSubject?.historicalRasedId||selectedSubject?.rasedId||selectedSubject?.parentCode||'').trim().toUpperCase();
+ const context=resolveParentMessageContext(selectedSubject||{},replyingTo||undefined);
+ const items=useMemo(()=>!selectedSubject?[]:mergeParentConversation(Array.isArray(selectedSubject.parentMessages)?selectedSubject.parentMessages:[],readLocalParentMessages(rasedId,context.schoolName||'غير محدد',context.subject||'غير محدد')),[selectedSubject,rasedId,context.schoolName,context.subject,tick]);
+ const payload=(text:string,type:string)=>({rasedId,civilID:rasedId,parentCode:rasedId,centralStudentId:selectedSubject?.centralStudentId||'',teacherId:selectedSubject?.teacherId||'',subjectId:selectedSubject?.subjectId||'',studentName:selectedSubject?.name,schoolName:context.schoolName,subject:context.subject,message:text,messageEncoded:encodeURIComponent(text),sender:'parent',direction:'parent_to_teacher',messageType:type,semester:context.semester,className:context.className,grade:context.grade,replyToRow:replyingTo?.rowNumber||'',replyToMessage:replyingTo?.message||''});
+ const saveLocal=(text:string,type:string)=>{saveLocalParentMessage(rasedId,context.schoolName,context.subject,{...payload(text,type),localId:`local_${Date.now()}`,date:new Date().toISOString(),status:'pending',isLocal:true});setTick(v=>v+1);};
+ const send=async()=>{const text=messageText.trim();if(!text||!selectedSubject)return;if(!context.schoolName||!context.subject)return alert('تعذر تحديد المدرسة أو المادة.');setIsSending(true);saveLocal(text,'general');try{const result=await sendParentMessage(payload(text,'general'));if(result.status==='success'||result.success===true){setMessageText('');await refresh();}}catch{alert('حُفظت الرسالة محليًا، وتعذر إرسالها الآن.');}finally{setIsSending(false);}};
+ const sendReply=async()=>{const text=replyText.trim();if(!text||!replyingTo)return;setIsSendingReply(true);saveLocal(text,'teacher_message_reply');try{const result=await sendParentReply(payload(text,'teacher_message_reply'));if(result.status==='success'||result.success===true){setReplyText('');setReplyingTo(null);await refresh();}}catch{alert('حُفظ الرد محليًا، وتعذر إرساله الآن.');}finally{setIsSendingReply(false);}};
+ return {open,setOpen,messageText,setMessageText,replyText,setReplyText,replyingTo,setReplyingTo,isSending,isSendingReply,items,send,sendReply};
+};
