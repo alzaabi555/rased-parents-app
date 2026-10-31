@@ -1,4 +1,4 @@
-export type TabId = 'home' | 'alerts' | 'profile';
+export type TabId = 'home' | 'subjects' | 'alerts' | 'profile';
 export type AlertTabId = 'all' | 'urgent';
 
 export interface SavedProfile {

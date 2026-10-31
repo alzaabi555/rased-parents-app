@@ -1,10 +1,42 @@
 import React from 'react';
-import { Bell, LayoutGrid, User } from 'lucide-react';
+import { Bell, BookOpen, LayoutGrid, User } from 'lucide-react';
 import type { TabId } from '../types/parent';
-export const BottomNavigation: React.FC<{ currentTab: TabId; negativeCount: number; onChange: (tab: TabId) => void }> = ({ currentTab, negativeCount, onChange }) => (
-  <nav className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white/90 backdrop-blur-xl border border-white shadow-2xl rounded-[2rem] flex items-center px-3 py-2" aria-label="التنقل الرئيسي">
-    <button type="button" onClick={()=>onChange('home')} className={`flex flex-col items-center px-4 py-2 ${currentTab==='home'?'text-[#002366] scale-110':'text-slate-400'}`}><LayoutGrid size={22}/><span className="text-[9px] font-black mt-1">الرئيسية</span></button>
-    <button type="button" onClick={()=>onChange('alerts')} className={`relative flex flex-col items-center px-4 py-2 ${currentTab==='alerts'?'text-[#002366] scale-110':'text-slate-400'}`}><Bell size={22}/>{negativeCount>0&&<span className="absolute top-1 right-3 w-2 h-2 bg-rose-500 rounded-full border border-white"/>}<span className="text-[9px] font-black mt-1">إشعارات</span></button>
-    <button type="button" onClick={()=>onChange('profile')} className={`flex flex-col items-center px-4 py-2 ${currentTab==='profile'?'text-[#002366] scale-110':'text-slate-400'}`}><User size={22}/><span className="text-[9px] font-black mt-1">حسابي</span></button>
+
+interface BottomNavigationProps {
+  currentTab: TabId;
+  negativeCount: number;
+  onChange: (tab: TabId) => void;
+}
+
+const items: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
+  { id: 'home', label: 'الرئيسية', icon: <LayoutGrid size={21} /> },
+  { id: 'subjects', label: 'المواد', icon: <BookOpen size={21} /> },
+  { id: 'alerts', label: 'الإشعارات', icon: <Bell size={21} /> },
+  { id: 'profile', label: 'حسابي', icon: <User size={21} /> },
+];
+
+export const BottomNavigation: React.FC<BottomNavigationProps> = ({ currentTab, negativeCount, onChange }) => (
+  <nav
+    className="absolute bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center rounded-[2rem] border border-white bg-white/90 px-2 py-2 shadow-2xl backdrop-blur-xl"
+    aria-label="التنقل الرئيسي"
+  >
+    {items.map(item => (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => onChange(item.id)}
+        className={`relative flex min-w-[64px] flex-col items-center justify-center rounded-2xl px-2 py-2 transition-all duration-300 ${
+          currentTab === item.id
+            ? 'bg-indigo-50 text-[#002366] -translate-y-1 shadow-sm'
+            : 'text-slate-400 hover:text-indigo-500'
+        }`}
+      >
+        {item.icon}
+        {item.id === 'alerts' && negativeCount > 0 && (
+          <span className="absolute right-3 top-1 h-2 w-2 rounded-full border border-white bg-rose-500" />
+        )}
+        <span className="mt-1 text-[9px] font-black">{item.label}</span>
+      </button>
+    ))}
   </nav>
 );
