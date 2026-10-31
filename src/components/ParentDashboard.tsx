@@ -5,8 +5,8 @@ import { GlassLayout } from './GlassLayout';
 import { InsightCard } from './InsightCard';
 import { formatDate, getGameScorePercent, getSubjectGameResults, safeList } from '../utils/parentViewUtils';
 
-interface ParentDashboardProps { allSubjects:any[]; parentSummary:any; secretCode:string; isRefreshing:boolean; onRefresh:()=>void; onSelectSubject:(subject:any)=>void; }
-export const ParentDashboard:React.FC<ParentDashboardProps>=({allSubjects,parentSummary,secretCode,isRefreshing,onRefresh,onSelectSubject})=>{
+interface ParentDashboardProps { allSubjects:any[]; parentSummary:any; isRefreshing:boolean; onRefresh:()=>void; onSelectSubject:(subject:any)=>void; }
+export const ParentDashboard:React.FC<ParentDashboardProps>=({allSubjects,parentSummary,isRefreshing,onRefresh,onSelectSubject})=>{
 const insights: SummaryInsight[] = [
       { label: 'حالة اليوم', value: parentSummary.status, hint: 'قراءة عامة للمتابعة', icon: <ShieldCheck size={18} />, tone: parentSummary.negativeCount > 2 ? 'rose' : parentSummary.negativeCount > 0 ? 'amber' : 'green' },
       { label: 'إجمالي النقاط', value: parentSummary.totalPoints, hint: 'من جميع المواد', icon: <Trophy size={18} />, tone: 'blue' },

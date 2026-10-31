@@ -63,7 +63,7 @@ function App() {
 
       <div className="absolute inset-0 z-10">
         {currentTab === 'home' && (!selectedSubject ? (
-          <ParentDashboard allSubjects={allSubjects} parentSummary={parentSummary} secretCode={secretCode} isRefreshing={isRefreshing} onRefresh={() => loadStudent(secretCode, true)} onSelectSubject={setSelectedSubject} />
+          <ParentDashboard allSubjects={allSubjects} parentSummary={parentSummary} isRefreshing={isRefreshing} onRefresh={() => loadStudent(secretCode, true)} onSelectSubject={setSelectedSubject} />
         ) : <SubjectDetails subjectData={selectedSubject} onBack={() => setSelectedSubject(null)} onOpenMessage={() => messages.setOpen(true)} />)}
         {currentTab === 'alerts' && <ParentAlerts allSubjects={allSubjects} activeAlertTab={activeAlertTab} onTabChange={setActiveAlertTab} />}
         {currentTab === 'profile' && <ParentProfile allSubjects={allSubjects} savedProfilesCount={savedProfiles.length} secretCode={secretCode} parentSummary={parentSummary} onLogout={handleLogout} />}
