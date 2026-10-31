@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Loader2,
   LogOut,
   Trophy,
   BookOpen,
@@ -22,7 +21,6 @@ import {
   MailCheck,
   Award,
   Clock3,
-  CircleDashed
 } from 'lucide-react';
 
 
@@ -514,7 +512,6 @@ function App() {
         onSend={messages.send}
         onSendReply={messages.sendReply}
       />
-      )}
     </div>
   );
 }
