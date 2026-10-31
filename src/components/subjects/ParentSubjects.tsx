@@ -4,6 +4,7 @@ import { GlassLayout } from '../GlassLayout';
 import { EmptyState } from '../EmptyState';
 import { getSubjectGameResults, safeList } from '../../utils/parentViewUtils';
 import { SubjectCard } from './SubjectCard';
+import { getSubjectContextKey } from '../../utils/subjectContext';
 
 type SubjectFilter = 'all' | 'grades' | 'alerts' | 'messages' | 'games';
 
@@ -77,7 +78,7 @@ export const ParentSubjects: React.FC<ParentSubjectsProps> = ({ allSubjects, onS
           <div className="space-y-3">
             {subjects.map((subject, index) => (
               <SubjectCard
-                key={`${subject.subject || 'subject'}-${subject.schoolName || ''}-${index}`}
+                key={getSubjectContextKey(subject) || `subject-${index}`}
                 subject={subject}
                 onOpen={() => onSelectSubject(subject)}
               />
