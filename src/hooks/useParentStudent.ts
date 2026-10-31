@@ -82,8 +82,9 @@ export const useParentStudent = ({ saveProfile, notifyUpdates }: Args) => {
         return;
       }
 
-      const identity: ParentIdentity = result.identity || subjects[0] || {};
-      const studentName = subjects[0]?.name || 'طالب';
+      const firstSubject = subjects[0] as (ParentIdentity & { name?: string }) | undefined;
+      const identity: ParentIdentity = result.identity || firstSubject || {};
+      const studentName = firstSubject?.name || 'طالب';
       const oldSubjects = readStudentCache(code);
       if (oldSubjects.length) {
         const delta = compareUpdates(oldSubjects, subjects);
