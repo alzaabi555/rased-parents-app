@@ -3,8 +3,15 @@ import { CalendarCheck2, Code, LogOut, User, Users } from 'lucide-react';
 import { GlassLayout } from './GlassLayout';
 import { InsightCard } from './InsightCard';
 import { formatDate } from '../utils/parentViewUtils';
+import type { ParentSubjectView, ParentSummaryView } from '../types/viewModels';
 
-interface ParentProfileProps { allSubjects:any[]; savedProfilesCount:number; secretCode:string; parentSummary:any; onLogout:()=>void; }
+interface ParentProfileProps {
+  allSubjects: ParentSubjectView[];
+  savedProfilesCount: number;
+  secretCode: string;
+  parentSummary: ParentSummaryView;
+  onLogout: () => void;
+}
 export const ParentProfile:React.FC<ParentProfileProps>=({allSubjects,savedProfilesCount,secretCode,parentSummary,onLogout})=>(
 <>
       <GlassLayout title="حسابي" icon={<User size={24} />}>

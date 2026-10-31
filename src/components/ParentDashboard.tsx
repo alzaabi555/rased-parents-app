@@ -1,11 +1,18 @@
 import React from 'react';
 import { AlertTriangle, Award, BookOpen, ChevronLeft, ClipboardList, Clock3, Gamepad2, History, Lightbulb, MailCheck, RefreshCw, ShieldCheck, Sparkles, Trophy, User } from 'lucide-react';
 import type { SummaryInsight } from '../types/learning';
+import type { ParentSubjectView, ParentSummaryView } from '../types/viewModels';
 import { GlassLayout } from './GlassLayout';
 import { InsightCard } from './InsightCard';
 import { formatDate, getGameScorePercent, getSubjectGameResults, safeList } from '../utils/parentViewUtils';
 
-interface ParentDashboardProps { allSubjects:any[]; parentSummary:any; isRefreshing:boolean; onRefresh:()=>void; onSelectSubject:(subject:any)=>void; }
+interface ParentDashboardProps {
+  allSubjects: ParentSubjectView[];
+  parentSummary: ParentSummaryView;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  onSelectSubject: (subject: ParentSubjectView) => void;
+}
 export const ParentDashboard:React.FC<ParentDashboardProps>=({allSubjects,parentSummary,isRefreshing,onRefresh,onSelectSubject})=>{
 const insights: SummaryInsight[] = [
       { label: 'حالة اليوم', value: parentSummary.status, hint: 'قراءة عامة للمتابعة', icon: <ShieldCheck size={18} />, tone: parentSummary.negativeCount > 2 ? 'rose' : parentSummary.negativeCount > 0 ? 'amber' : 'green' },
@@ -94,10 +101,10 @@ const insights: SummaryInsight[] = [
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {allSubjects.map((sub, idx) => {
-                  const positive = safeList<any>(sub.behaviors).filter((b: any) => b.type === 'positive').length;
-                  const negative = safeList<any>(sub.behaviors).filter((b: any) => b.type === 'negative').length;
+                  const positive = safeList(sub.behaviors).filter((behavior) => behavior.type === 'positive').length;
+                  const negative = safeList(sub.behaviors).filter((behavior) => behavior.type === 'negative').length;
                   const gameCount = getSubjectGameResults(sub).length;
-                  const messageCount = safeList<any>(sub.parentMessages).length;
+                  const messageCount = safeList(sub.parentMessages).length;
                   const subjectGames = getSubjectGameResults(sub);
                   const latestGameScore = subjectGames.length ? getGameScorePercent(subjectGames[0]) : 0;
                   const progress = latestGameScore || Math.min(100, Math.max(8, (Number(sub.totalPoints || 0) + 40)));

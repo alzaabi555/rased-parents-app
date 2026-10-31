@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
-
-
-import type { TabId, AlertTabId } from './types/parent';
+import type { AlertTabId, TabId } from './types/parent';
 import { SubjectDetails } from './components/SubjectDetails';
 import { ParentLogin } from './components/ParentLogin';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -30,9 +28,20 @@ function App() {
     isLoading, isRefreshing, error, showWelcomeScreen, loadStudent, clearStudent,
   } = student;
   const parentSummary = useMemo(() => buildParentSummary(allSubjects), [allSubjects]);
-  const handleLogin = (event: React.FormEvent) => { event.preventDefault(); void loadStudent(secretCode); };
-  const handleLogout = () => { clearSession(); clearStudent(); setCurrentTab('home'); };
-  const removeSavedProfile = (id: string, event: React.MouseEvent) => { event.stopPropagation(); removeProfile(id); if (secretCode === id) setSecretCode(''); };
+  const handleLogin = (event: React.FormEvent) => {
+    event.preventDefault();
+    void loadStudent(secretCode);
+  };
+  const handleLogout = () => {
+    clearSession();
+    clearStudent();
+    setCurrentTab('home');
+  };
+  const removeSavedProfile = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    removeProfile(id);
+    if (secretCode === id) setSecretCode('');
+  };
   const messages = useParentMessages({
     selectedSubject, secretCode, refresh: () => loadStudent(secretCode, false, true),
   });
@@ -62,11 +71,39 @@ function App() {
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[50%] bg-blue-300/20 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="absolute inset-0 z-10">
-        {currentTab === 'home' && (!selectedSubject ? (
-          <ParentDashboard allSubjects={allSubjects} parentSummary={parentSummary} isRefreshing={isRefreshing} onRefresh={() => loadStudent(secretCode, true)} onSelectSubject={setSelectedSubject} />
-        ) : <SubjectDetails subjectData={selectedSubject} onBack={() => setSelectedSubject(null)} onOpenMessage={() => messages.setOpen(true)} />)}
-        {currentTab === 'alerts' && <ParentAlerts allSubjects={allSubjects} activeAlertTab={activeAlertTab} onTabChange={setActiveAlertTab} />}
-        {currentTab === 'profile' && <ParentProfile allSubjects={allSubjects} savedProfilesCount={savedProfiles.length} secretCode={secretCode} parentSummary={parentSummary} onLogout={handleLogout} />}
+        {currentTab === 'home' && (
+          !selectedSubject ? (
+            <ParentDashboard
+              allSubjects={allSubjects}
+              parentSummary={parentSummary}
+              isRefreshing={isRefreshing}
+              onRefresh={() => loadStudent(secretCode, true)}
+              onSelectSubject={setSelectedSubject}
+            />
+          ) : (
+            <SubjectDetails
+              subjectData={selectedSubject}
+              onBack={() => setSelectedSubject(null)}
+              onOpenMessage={() => messages.setOpen(true)}
+            />
+          )
+        )}
+        {currentTab === 'alerts' && (
+          <ParentAlerts
+            allSubjects={allSubjects}
+            activeAlertTab={activeAlertTab}
+            onTabChange={setActiveAlertTab}
+          />
+        )}
+        {currentTab === 'profile' && (
+          <ParentProfile
+            allSubjects={allSubjects}
+            savedProfilesCount={savedProfiles.length}
+            secretCode={secretCode}
+            parentSummary={parentSummary}
+            onLogout={handleLogout}
+          />
+        )}
       </div>
 
       <BottomNavigation
