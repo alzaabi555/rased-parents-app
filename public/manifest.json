@@ -1,15 +1,28 @@
 {
+  "id": "./",
+  "name": "تطبيق راصد ولي الأمر",
   "short_name": "راصد",
-  "name": "تطبيق راصد لولي الأمر",
-  "icons": [
-    {
-      "src": "logo.png",
-      "sizes": "192x192 512x512",
-      "type": "image/png"
-    }
-  ],
-  "start_url": ".",
+  "description": "بوابة راصد لأولياء الأمور",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "theme_color": "#1e3a8a",
-  "background_color": "#f8fafc"
+  "background_color": "#f8fafc",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
